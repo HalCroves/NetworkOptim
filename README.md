@@ -12,7 +12,9 @@ Comprend un tunnel WireGuard vers un VPS Ionos (Paris) pour stabiliser le routag
 - [Prérequis](#prérequis)
 - [Installation WireGuard (VPS + Windows)](#installation-wireguard-vps--windows)
 - [Utilisation](#utilisation)
+- [Vérifier que CS2 passe par le tunnel](#vérifier-que-cs2-passe-par-le-tunnel)
 - [Configuration WireGuard actuelle](#configuration-wireguard-actuelle)
+- [Désinstallation complète du tunnel](#désinstallation-complète-du-tunnel)
 - [Dépannage](#dépannage)
 
 ---
@@ -223,6 +225,62 @@ Stop-Service 'WireGuardTunnel$CS2-WG'
 
 ---
 
+## Vérifier que CS2 passe par le tunnel
+
+### 1. Vérifier l'état du tunnel (wg show)
+
+Dans un terminal **PowerShell administrateur** :
+
+```powershell
+& 'C:\Program Files\WireGuard\wg.exe' show
+```
+
+Sortie attendue quand le tunnel fonctionne :
+```
+interface: CS2-WG
+  public key: NGKfIv...
+  listening port: 60511
+
+peer: Fdya9D...
+  endpoint: <IP_VPS>:51820
+  allowed ips: 10.66.66.0/24, 155.133.224.0/19, ...
+  latest handshake: 23 seconds ago        <-- doit être présent
+  transfer: 534.76 KiB received, 209.88 KiB sent  <-- doit augmenter en jeu
+  persistent keepalive: every 25 seconds
+```
+
+- **`latest handshake`** présent → tunnel établi
+- **`transfer` qui augmente** pendant une partie → trafic CS2 bien routé via le VPS
+- **Pas de `latest handshake`** → tunnel mort, voir [Dépannage](#dépannage)
+
+### 2. Vérifier les routes Valve dans la table de routage
+
+```powershell
+route print | Select-String '155\.133|185\.25|192\.69|208\.64|205\.196|209\.197'
+```
+
+Chaque range Valve doit apparaître avec `On-link` via `10.66.66.2` (l'interface WireGuard).  
+Si ces lignes sont absentes, le service WireGuard est arrêté.
+
+### 3. Vérifier en direct pendant une partie
+
+Ouvrir deux terminaux admin côte à côte :
+
+```powershell
+# Terminal 1 — surveiller le transfert (toutes les 5s)
+while ($true) {
+    & 'C:\Program Files\WireGuard\wg.exe' show | Select-String 'transfer|handshake'
+    Start-Sleep 5
+}
+
+# Terminal 2 — ping vers le VPS (latence tunnel)
+ping -t 10.66.66.1
+```
+
+Si le compteur `transfer` augmente pendant la partie → CS2 passe bien par le tunnel.
+
+---
+
 ## Configuration WireGuard actuelle
 
 **Client Windows** (`C:\ProgramData\WireGuard\CS2-WG.conf`) :
@@ -253,6 +311,60 @@ PublicKey           = <clé publique client>
 AllowedIPs          = 10.66.66.2/32
 PersistentKeepalive = 25
 ```
+
+---
+
+## Désinstallation complète du tunnel
+
+### Côté Windows
+
+Dans un terminal **PowerShell administrateur** :
+
+```powershell
+# 1. Arrêter et supprimer le service WireGuard
+& 'C:\Program Files\WireGuard\wireguard.exe' /uninstalltunnelservice CS2-WG
+
+# 2. Supprimer le fichier de configuration
+Remove-Item 'C:\ProgramData\WireGuard\CS2-WG.conf' -Force -ErrorAction SilentlyContinue
+
+# 3. Désinstaller WireGuard for Windows (optionnel)
+winget uninstall --id WireGuard.WireGuard
+# OU via Paramètres Windows → Applications → WireGuard → Désinstaller
+```
+
+Vérifier que tout est supprimé :
+```powershell
+# Le service ne doit plus exister
+Get-Service 'WireGuardTunnel$CS2-WG' -ErrorAction SilentlyContinue
+# Aucune route Valve ne doit pointer vers 10.66.66.2
+route print | Select-String '10\.66\.66'
+```
+
+### Côté VPS (optionnel)
+
+```bash
+# Arrêter le service et le désactiver au boot
+systemctl stop wg-quick@wg0
+systemctl disable wg-quick@wg0
+
+# Supprimer la configuration
+rm /etc/wireguard/wg0.conf
+
+# Désinstaller WireGuard (optionnel)
+apt purge wireguard wireguard-tools -y
+
+# Nettoyer les règles iptables résiduelles (si PostDown n'a pas tourné)
+iptables -D FORWARD -i wg0 -j ACCEPT 2>/dev/null
+iptables -D FORWARD -o wg0 -j ACCEPT 2>/dev/null
+iptables -t nat -D POSTROUTING -o ens6 -j MASQUERADE 2>/dev/null
+```
+
+> Si tu veux juste **supprimer le peer Windows** sans tout désinstaller (ex: rotation de clés) :
+> ```bash
+> # Sur le VPS — retirer uniquement le peer
+> wg set wg0 peer <CLÉ_PUBLIQUE_CLIENT> remove
+> # Puis mettre à jour wg0.conf manuellement ou relancer wg-add-peer.sh avec les nouvelles clés
+> ```
 
 ---
 

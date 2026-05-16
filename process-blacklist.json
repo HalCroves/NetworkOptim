@@ -8,6 +8,7 @@
                       "GameBar",
                       "GameBarPresenceWriter",
                       "gamingservices",
+                      "GitHubDesktop",
                       "GoogleDriveFS",
                       "googledrivesync",
                       "iCloud",
@@ -43,6 +44,6 @@
                       "XboxGameOverlay",
                       "XboxSpeechToTextOverlay"
                   ],
-    "lastUpdated":  "2026-05-16 13:43:01",
-    "count":  42
+    "lastUpdated":  "2026-05-16 16:38:56",
+    "count":  43
 }
