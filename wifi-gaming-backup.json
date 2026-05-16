@@ -1,10 +1,10 @@
 ﻿{
-    "NicRegPath":  "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}\\0008",
+    "NicRegPath":  "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}\\0013",
     "DNS":  [
                 "1.0.0.1",
                 "1.1.1.1"
             ],
-    "InterfaceIndex":  14,
+    "InterfaceIndex":  18,
     "NicPnPCaps":  24,
     "NagleNoDelay":  1,
     "QoSKeyExisted":  true,
@@ -13,9 +13,9 @@
 
                    ],
     "QoSLimit":  0,
-    "Interface":  "Wi-Fi",
+    "Interface":  "iPhone USB",
     "Timestamps":  "disabled",
     "NetworkThrottlingIndex":  4294967295,
     "NagleAckFreq":  1,
-    "InterfaceGuid":  "{AFDC9425-0804-4E76-9738-F49FEB52C341}"
+    "InterfaceGuid":  "{DE96C88C-1F89-406F-BA69-22B0D1A2C417}"
 }

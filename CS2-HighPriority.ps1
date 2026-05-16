@@ -185,14 +185,14 @@ $knownKillList = @(
     # Communication (Discord exclu - outil team)
     "Teams","ms-teams","Slack",
     # Xbox / GameBar
-    "GameBar","GameBarPresenceWriter","Xbox","XboxGameOverlay","XboxSpeechToTextOverlay",
+    "GameBar","GameBarPresenceWriter","XbOnt faox","XboxGameOverlay","XboxSpeechToTextOverlay",
     # Mises a jour
     "MicrosoftEdgeUpdate","MusNotification",
     # Musique (Spotify exclu - voulu par l'utilisateur)
     # "Spotify","SpotifyLauncher",
-    # iCloud / Apple
+    # iCloud / Apple (AppleMobileDeviceProcess exclu : requis pour tethering USB iPhone)
     "iCloudHome","iCloudDrive","iCloudPhotos","iCloudCKKS","iCloudOutlookConfig",
-    "iCloudServices","ApplePhotoStreams","AppleMobileDeviceProcess","iCloud",
+    "iCloudServices","ApplePhotoStreams","iCloud",
     # Peripheriques gaming
     "SteelSeriesSonar","SteelSeriesEngine","SteelSeriesPrism","SteelSeriesGG","SteelSeriesGGEZ",
     "lghub_agent","lghub_system_tray","ArmourySocketServer",
@@ -280,7 +280,7 @@ $services = @(
     @{ Name="XboxNetApiSvc";                   Label="Xbox Live Networking";        Disable=$true  },
     @{ Name="XboxGipSvc";                      Label="Xbox Accessory Mgmt";         Disable=$true  },
     # iCloud - service racine qui relance tous les processus iCloud
-    @{ Name="AppleMobileDeviceService";        Label="Apple Mobile Device";         Disable=$true  },
+    # AppleMobileDeviceService EXCLU : requis pour tethering USB iPhone
     @{ Name="Bonjour";                         Label="Bonjour (Apple)";             Disable=$true  },
     # Windows Widgets - root spawner de msedgewebview2
     @{ Name="Widgets";                         Label="Windows Widgets";             Disable=$true  },
@@ -588,22 +588,34 @@ if ($cs2) {
         # CS2 ferme -> sortir
         if ($cs2.HasExited) { break }
 
-        # Mesure de latence live (ping 1.1.1.1, 2 requetes)
-        $pingReply_ = Test-Connection -ComputerName "1.1.1.1" -Count 2 -EA SilentlyContinue
-        if ($pingReply_) {
-            $latProp_  = if ($pingReply_[0].PSObject.Properties['ResponseTime']) { 'ResponseTime' } else { 'Latency' }
-            $times_    = $pingReply_ | Select-Object -ExpandProperty $latProp_ -EA SilentlyContinue | Where-Object { $_ -ne $null }
-            if ($times_) {
-                $avgMs_  = [int]($times_ | Measure-Object -Average).Average
-                $maxMs_  = [int]($times_ | Measure-Object -Maximum).Maximum
-                $minMs_  = [int]($times_ | Measure-Object -Minimum).Minimum
-                $jitter_ = $maxMs_ - $minMs_
-                $pCol_   = if ($maxMs_ -gt 150) { 'Red' } elseif ($maxMs_ -gt 80) { 'DarkYellow' } else { 'Green' }
-                $spike_  = if ($maxMs_ -gt 150) { '  ** SPIKE **' } else { '' }
-                Write-Host "  [PING] 1.1.1.1  avg=${avgMs_}ms  max=${maxMs_}ms  jitter=${jitter_}ms$spike_" -ForegroundColor $pCol_
-                if ($maxMs_ -gt 150) {
-                    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | $GameName | avg=${avgMs_}ms max=${maxMs_}ms jitter=${jitter_}ms" |
-                        Add-Content -Path "$PSScriptRoot\latency-spikes.log" -Encoding UTF8 -EA SilentlyContinue
+        # Mesure de latence live (ping 1.1.1.1 + VPS WireGuard, 2 requetes chacun)
+        foreach ($pingTarget_ in @("1.1.1.1", "10.66.66.1")) {
+            $pingReply_ = Test-Connection -ComputerName $pingTarget_ -Count 2 -EA SilentlyContinue
+            if ($pingReply_) {
+                $latProp_  = if ($pingReply_[0].PSObject.Properties['ResponseTime']) { 'ResponseTime' } else { 'Latency' }
+                $times_    = $pingReply_ | Select-Object -ExpandProperty $latProp_ -EA SilentlyContinue | Where-Object { $_ -ne $null }
+                if ($times_) {
+                    $avgMs_  = [int]($times_ | Measure-Object -Average).Average
+                    $maxMs_  = [int]($times_ | Measure-Object -Maximum).Maximum
+                    $minMs_  = [int]($times_ | Measure-Object -Minimum).Minimum
+                    $jitter_ = $maxMs_ - $minMs_
+                    $isVps_  = $pingTarget_ -eq "10.66.66.1"
+                    $label_  = if ($isVps_) { "VPS WG  " } else { "1.1.1.1 " }
+                    if ($isVps_) {
+                        # VPS = route CS2 reelle -> spike critique, logue
+                        $pCol_  = if ($maxMs_ -gt 150) { 'Red' } elseif ($maxMs_ -gt 80) { 'DarkYellow' } else { 'Green' }
+                        $spike_ = if ($maxMs_ -gt 150) { '  ** SPIKE CS2 **' } else { '' }
+                        Write-Host "  [PING] $label_  avg=${avgMs_}ms  max=${maxMs_}ms  jitter=${jitter_}ms$spike_" -ForegroundColor $pCol_
+                        if ($maxMs_ -gt 150) {
+                            "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | $GameName | VPS | avg=${avgMs_}ms max=${maxMs_}ms jitter=${jitter_}ms" |
+                                Add-Content -Path "$PSScriptRoot\latency-spikes.log" -Encoding UTF8 -EA SilentlyContinue
+                        }
+                    } else {
+                        # 1.1.1.1 = indicateur reseau global, pas critique pour CS2
+                        $pCol_  = if ($maxMs_ -gt 150) { 'DarkYellow' } elseif ($maxMs_ -gt 80) { 'DarkYellow' } else { 'Green' }
+                        $spike_ = if ($maxMs_ -gt 150) { '  (reseau instable)' } else { '' }
+                        Write-Host "  [PING] $label_  avg=${avgMs_}ms  max=${maxMs_}ms  jitter=${jitter_}ms$spike_" -ForegroundColor $pCol_
+                    }
                 }
             }
         }

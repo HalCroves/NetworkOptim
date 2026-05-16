@@ -1,7 +1,6 @@
 ﻿{
     "processes":  [
                       "AdobeCollabSync",
-                      "AppleMobileDeviceProcess",
                       "ApplePhotoStreams",
                       "ArmourySocketServer",
                       "Dropbox",
@@ -40,10 +39,11 @@
                       "WhatsApp.Root",
                       "WidgetBoard",
                       "WidgetService",
+                      "XbOnt faox",
                       "Xbox",
                       "XboxGameOverlay",
                       "XboxSpeechToTextOverlay"
                   ],
-    "lastUpdated":  "2026-05-16 17:04:42",
+    "lastUpdated":  "2026-05-16 21:04:59",
     "count":  43
 }

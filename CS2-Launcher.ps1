@@ -500,7 +500,8 @@ $sep2.Size      = New-Object System.Drawing.Size(157, 1)
 $sep2.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 60)
 $pnlR.Controls.Add($sep2)
 
-$btnClearLog = mkBtn "  Effacer logs"    307  $cDarker $false
+$btnClearLog  = mkBtn "  Effacer logs"    307  $cDarker $false
+$btnSpeedtest = mkBtn "  Speedtest"       352  $cDark   $false
 
 $btnStop.Enabled     = $false
 $btnRelaunch.Enabled = $false
@@ -541,8 +542,8 @@ $cmbGame.add_SelectedIndexChanged({ Update-GameSelection })
 $lblStats = New-Object System.Windows.Forms.Label
 $lblStats.Font      = New-Object System.Drawing.Font("Consolas", 7.5)
 $lblStats.ForeColor = [System.Drawing.Color]::FromArgb(90, 90, 120)
-$lblStats.Location  = New-Object System.Drawing.Point(8, 371)
-$lblStats.Size      = New-Object System.Drawing.Size(157, 70)
+$lblStats.Location  = New-Object System.Drawing.Point(8, 400)
+$lblStats.Size      = New-Object System.Drawing.Size(157, 58)
 $lblStats.Text      = "Tues      : 0`nCycles    : 0`nInterface : -"
 $pnlR.Controls.Add($lblStats)
 
@@ -550,8 +551,8 @@ $pnlR.Controls.Add($lblStats)
 $lblDB = New-Object System.Windows.Forms.Label
 $lblDB.Font      = New-Object System.Drawing.Font("Consolas", 7.5)
 $lblDB.ForeColor = [System.Drawing.Color]::FromArgb(65, 65, 95)
-$lblDB.Location  = New-Object System.Drawing.Point(8, 454)
-$lblDB.Size      = New-Object System.Drawing.Size(157, 30)
+$lblDB.Location  = New-Object System.Drawing.Point(8, 462)
+$lblDB.Size      = New-Object System.Drawing.Size(157, 28)
 $lblDB.Text      = "DB : $dbCount entrees"
 $pnlR.Controls.Add($lblDB)
 
@@ -820,12 +821,102 @@ $btnClearDB.add_Click({
 $btnClearLog.add_Click({ $rtb.Clear() })
 
 # ================================================================
+#  BOUTON : Speedtest
+# ================================================================
+$btnSpeedtest.add_Click({
+    $btnSpeedtest.Enabled = $false
+    Append-Log "" $defCol
+    Append-Log "  ── Speedtest ──────────────────────────────────" ([System.Drawing.Color]::FromArgb(55, 130, 200))
+
+    $script:_stQ  = [System.Collections.Concurrent.ConcurrentQueue[psobject]]::new()
+    $stRS = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace()
+    $stRS.ApartmentState = "MTA"; $stRS.ThreadOptions = "ReuseThread"; $stRS.Open()
+    $stPS = [powershell]::Create()
+    $stPS.Runspace = $stRS
+    $stPS.AddScript({
+        param($q)
+        function qLog([string]$txt, [string]$col = "White") {
+            $ts = [datetime]::Now.ToString("HH:mm:ss")
+            $q.Enqueue([PSCustomObject]@{ T = "[$ts] $txt"; C = $col })
+        }
+        # 1. Ping base
+        qLog "  Ping 1.1.1.1..." "Gray"
+        $p1 = Test-Connection "1.1.1.1" -Count 4 -BufferSize 32 -EA SilentlyContinue
+        if ($p1) {
+            $a1 = [math]::Round(($p1 | Measure-Object ResponseTime -Average).Average)
+            $m1 = ($p1 | Measure-Object ResponseTime -Maximum).Maximum
+            qLog "  1.1.1.1    avg $a1 ms  max $m1 ms" "Green"
+        } else { qLog "  1.1.1.1    timeout" "Red" }
+        # 2. Ping WireGuard
+        qLog "  Ping WireGuard (10.66.66.1)..." "Gray"
+        $p2 = Test-Connection "10.66.66.1" -Count 4 -BufferSize 32 -EA SilentlyContinue
+        if ($p2) {
+            $a2 = [math]::Round(($p2 | Measure-Object ResponseTime -Average).Average)
+            $m2 = ($p2 | Measure-Object ResponseTime -Maximum).Maximum
+            qLog "  WG tunnel  avg $a2 ms  max $m2 ms" "Cyan"
+        } else { qLog "  WG tunnel  offline" "DarkYellow" }
+        # 3. Download 10 MB
+        qLog "  Download 10 MB (Cloudflare)..." "Gray"
+        try {
+            $wc = New-Object System.Net.WebClient
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            $dl = $wc.DownloadData("https://speed.cloudflare.com/__down?bytes=10485760")
+            $sw.Stop()
+            $dlM = [math]::Round(($dl.Length * 8) / $sw.Elapsed.TotalSeconds / 1e6, 1)
+            qLog "  Download   $dlM Mbps  ($([math]::Round($sw.Elapsed.TotalSeconds,1))s)" "Green"
+        } catch { qLog "  Download   erreur : $($_.Exception.Message)" "Red" }
+        # 4. Upload 4 MB
+        qLog "  Upload 4 MB (Cloudflare)..." "Gray"
+        try {
+            $buf = [byte[]]::new(4 * 1024 * 1024)
+            [System.Random]::new().NextBytes($buf)
+            $wc2 = New-Object System.Net.WebClient
+            $wc2.Headers.Add("Content-Type", "application/octet-stream")
+            $sw2 = [System.Diagnostics.Stopwatch]::StartNew()
+            $null = $wc2.UploadData("https://speed.cloudflare.com/__up", $buf)
+            $sw2.Stop()
+            $ulM = [math]::Round(($buf.Length * 8) / $sw2.Elapsed.TotalSeconds / 1e6, 1)
+            qLog "  Upload     $ulM Mbps  ($([math]::Round($sw2.Elapsed.TotalSeconds,1))s)" "Green"
+        } catch { qLog "  Upload     erreur : $($_.Exception.Message)" "Red" }
+        qLog "  ── Fin speedtest ──────────────────────────" "Cyan"
+    }) | Out-Null
+    $stPS.AddArgument($script:_stQ) | Out-Null
+    $script:_stPS    = $stPS
+    $script:_stRS    = $stRS
+    $script:_stAsync = $stPS.BeginInvoke()
+
+    $script:_stTmr = New-Object System.Windows.Forms.Timer
+    $script:_stTmr.Interval = 200
+    $script:_stTmr.add_Tick({
+        $it = $null
+        while ($script:_stQ.TryDequeue([ref]$it)) {
+            $cl = if ($colorMap.ContainsKey($it.C)) { $colorMap[$it.C] } else { $defCol }
+            Append-Log $it.T $cl
+        }
+        if ($script:_stAsync.IsCompleted) {
+            while ($script:_stQ.TryDequeue([ref]$it)) {
+                $cl = if ($colorMap.ContainsKey($it.C)) { $colorMap[$it.C] } else { $defCol }
+                Append-Log $it.T $cl
+            }
+            try { $script:_stPS.EndInvoke($script:_stAsync) } catch {}
+            try { $script:_stRS.Close(); $script:_stRS.Dispose() } catch {}
+            $script:_stTmr.Stop()
+            $btnSpeedtest.Enabled = $true
+        }
+    })
+    $script:_stTmr.Start()
+})
+
+# ================================================================
 #  FERMETURE
 # ================================================================
 $form.add_FormClosing({
     $timer.Stop()
     try { $g.PS.Stop() }  catch {}
     try { $g.RS.Close(); $g.RS.Dispose() } catch {}
+    try { $script:_stTmr.Stop() } catch {}
+    try { $script:_stPS.Stop()  } catch {}
+    try { $script:_stRS.Close(); $script:_stRS.Dispose() } catch {}
 })
 
 # ================================================================
