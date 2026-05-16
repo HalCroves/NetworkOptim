@@ -11,6 +11,8 @@ Comprend un tunnel WireGuard vers un VPS Ionos (Paris) pour stabiliser le routag
 - [Fichiers du projet](#fichiers-du-projet)
 - [Prérequis](#prérequis)
 - [Installation WireGuard (VPS + Windows)](#installation-wireguard-vps--windows)
+- [Anti-bufferbloat VPS (fq_codel + BBR)](#anti-bufferbloat-vps-fq_codel--bbr)
+- [Configuration CS2 (autoexec.cfg)](#configuration-cs2-autoexeccfg)
 - [Utilisation](#utilisation)
 - [Vérifier que CS2 passe par le tunnel](#vérifier-que-cs2-passe-par-le-tunnel)
 - [Configuration WireGuard actuelle](#configuration-wireguard-actuelle)
@@ -62,6 +64,20 @@ La 4G via tethering iPhone donne une IP publique instable et un routage sous-opt
 ```
 
 Le service WireGuard (`WireGuardTunnel$CS2-WG`) démarre **automatiquement** au boot Windows.
+
+### Tier 3 — Anti-bufferbloat VPS (fq_codel + BBR)
+
+Même avec le tunnel actif, les pics de latence en jeu (typiquement +30–40 ms pendant les rounds) sont causés par du **bufferbloat** : les bursts UDP de CS2 saturent la file d'attente du lien 4G et des interfaces du VPS, créant un retard de queuing.
+
+| Composant | Configuration | Effet |
+|-----------|--------------|-------|
+| **fq_codel sur `ens6`** | `tc qdisc replace dev ens6 root fq_codel` | Élimine l'accumulation de paquets sur l'interface physique du VPS |
+| **fq_codel sur `wg0`** | `tc qdisc replace dev wg0 root fq_codel` | Idem côté tunnel WireGuard (trafic CS2 décapsulé) |
+| **BBR congestion control** | `net.ipv4.tcp_congestion_control=bbr` | Algorithme Google adaptatif, bien plus efficace que Cubic sur 4G variable |
+| **Default qdisc** | `net.core.default_qdisc=fq_codel` | Toute nouvelle interface hérite de fq_codel automatiquement |
+| **Service `tc-fq-codel`** | systemd unit enabled | fq_codel réappliqué automatiquement après chaque reboot |
+
+Installation → voir [Anti-bufferbloat VPS (fq_codel + BBR)](#anti-bufferbloat-vps-fq_codel--bbr).
 
 ---
 
@@ -182,6 +198,86 @@ Sur Windows (terminal admin) :
 ping 10.66.66.1
 # Doit répondre en ~50ms
 ```
+
+---
+
+## Anti-bufferbloat VPS (fq_codel + BBR)
+
+À appliquer **une fois** sur le VPS après l'installation WireGuard.
+
+```bash
+# 1. Appliquer fq_codel immédiatement
+tc qdisc replace dev ens6 root fq_codel
+tc qdisc replace dev wg0  root fq_codel
+
+# Vérifier (doit afficher "fq_codel" pour chaque interface)
+tc qdisc show dev ens6
+tc qdisc show dev wg0
+
+# 2. Activer BBR et définir fq_codel comme qdisc par défaut
+echo "net.core.default_qdisc = fq_codel" >> /etc/sysctl.conf
+echo "net.ipv4.tcp_congestion_control = bbr"  >> /etc/sysctl.conf
+sysctl -p
+sysctl net.ipv4.tcp_congestion_control   # doit répondre "bbr"
+
+# 3. Persister fq_codel au démarrage via un service systemd
+cat > /etc/systemd/system/tc-fq-codel.service << 'EOF'
+[Unit]
+Description=fq_codel qdisc on ens6 + wg0
+After=network-online.target wg-quick@wg0.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/tc qdisc replace dev ens6 root fq_codel
+ExecStart=/sbin/tc qdisc replace dev wg0  root fq_codel
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now tc-fq-codel.service
+systemctl status tc-fq-codel.service --no-pager
+```
+
+Sortie attendue du status :
+```
+● tc-fq-codel.service - fq_codel qdisc on ens6 + wg0
+     Active: active (exited) since ...
+    Process: ExecStart=/sbin/tc qdisc replace dev ens6 root fq_codel (code=exited, status=0/SUCCESS)
+    Process: ExecStart=/sbin/tc qdisc replace dev wg0  root fq_codel (code=exited, status=0/SUCCESS)
+```
+
+---
+
+## Configuration CS2 (autoexec.cfg)
+
+Fichier : `<Steam>\steamapps\common\Counter-Strike Global Offensive\game\csgo\cfg\autoexec.cfg`
+
+### Paramètres réseau clés
+
+| CVar | Valeur | Pourquoi |
+|------|--------|----------|
+| `rate` | `524288` | ~4 Mbps — calibré pour 5-10 Mbps d'upload. À 131072 (1 Mbps) CS2 buffère ses données en interne → micro-jitter artificiel |
+| `cl_interp_ratio` | `1` | 15.6 ms d'interpolation sur 64-tick (ratio 2 = 31 ms, trop visible) |
+| `cl_interp` | `0` | Calculé automatiquement depuis `cl_interp_ratio` |
+| `mm_dedicated_search_maxping` | `120` | Limite la recherche de serveurs à 120 ms max |
+
+> ⚠️ `cl_cmdrate`, `cl_updaterate`, `net_maxroutable` et `net_queued_packet_thread` sont des CVars **CS:GO supprimées dans CS2** (architecture sub-tick). Ne pas les inclure dans l'autoexec.
+
+### Adapter `rate` à ta connexion
+
+Formule approximative : `rate = upload_octets_par_seconde × 0.5`  
+Laisser 50 % pour l'overhead WireGuard (encapsulation UDP) + autres trafics système.
+
+| Upload 4G stable | `rate` recommandé |
+|-----------------|-------------------|
+| ~2 Mbps         | `131072`           |
+| ~4 Mbps         | `262144`           |
+| ~8 Mbps         | `524288` ✓         |
+| ≥ 15 Mbps       | `786432` (défaut CS2) |
 
 ---
 
