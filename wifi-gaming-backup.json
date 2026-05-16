@@ -1,0 +1,21 @@
+﻿{
+    "NicRegPath":  "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}\\0008",
+    "DNS":  [
+                "1.0.0.1",
+                "1.1.1.1"
+            ],
+    "InterfaceIndex":  14,
+    "NicPnPCaps":  24,
+    "NagleNoDelay":  1,
+    "QoSKeyExisted":  true,
+    "ECN":  "disabled",
+    "AutoTuning":  [
+
+                   ],
+    "QoSLimit":  0,
+    "Interface":  "Wi-Fi",
+    "Timestamps":  "disabled",
+    "NetworkThrottlingIndex":  4294967295,
+    "NagleAckFreq":  1,
+    "InterfaceGuid":  "{AFDC9425-0804-4E76-9738-F49FEB52C341}"
+}

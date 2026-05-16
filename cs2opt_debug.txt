@@ -1,0 +1,14 @@
+﻿[P1] Scan HKEY_USERS...
+  SID=S-1-5-21-90387720-2314503677-3889906494-1000 -> c:\program files (x86)\steam
+[sRoot] = c:\program files (x86)\steam
+[VDF] 'c:\program files (x86)\steam\steamapps\libraryfolders.vdf' existe=True
+[VDF] 2 correspondances path
+  path=C:\Program Files (x86)\Steam steamapps=True
+  path=E:\SteamLibrary steamapps=True
+[P3] Scan disques fixes...
+  Trouve: C:\Program Files (x86)\Steam\steamapps
+  Trouve: E:\SteamLibrary\steamapps
+[Libs] total=2: c:\program files (x86)\steam\steamapps, E:\SteamLibrary\steamapps
+[Lib] 'c:\program files (x86)\steam\steamapps' -> 1 ACF
+[Lib] 'E:\SteamLibrary\steamapps' -> 26 ACF
+[Steam total] 26 jeux
