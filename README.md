@@ -13,6 +13,7 @@ Comprend un tunnel WireGuard vers un VPS Ionos (Paris) pour stabiliser le routag
 - [Installation WireGuard (VPS + Windows)](#installation-wireguard-vps--windows)
 - [Anti-bufferbloat VPS (fq_codel + BBR)](#anti-bufferbloat-vps-fq_codel--bbr)
 - [Configuration CS2 (autoexec.cfg)](#configuration-cs2-autoexeccfg)
+- [Tethering iPhone USB](#tethering-iphone-usb)
 - [Utilisation](#utilisation)
 - [Vérifier que CS2 passe par le tunnel](#vérifier-que-cs2-passe-par-le-tunnel)
 - [Configuration WireGuard actuelle](#configuration-wireguard-actuelle)
@@ -278,6 +279,80 @@ Laisser 50 % pour l'overhead WireGuard (encapsulation UDP) + autres trafics syst
 | ~4 Mbps         | `262144`           |
 | ~8 Mbps         | `524288` ✓         |
 | ≥ 15 Mbps       | `786432` (défaut CS2) |
+
+---
+
+## Tethering iPhone USB
+
+Connexion internet via câble USB plutôt que WiFi hotspot : plus stable, pas d'interférence radio, ~5-10 ms de moins sur le lien local.
+
+### Prérequis
+
+- **iTunes** installé (fournit le driver `Apple Mobile Device Ethernet`)
+- **Câble ANKER data** branché sur un **port USB 3.0 (bleu)** — les ports USB 2.0 peuvent ne pas fournir assez de signal pour le tethering
+- **Partage de connexion** activé sur l'iPhone : Réglages → Partage de connexion → toggle ON
+
+### Mise en place (une seule fois)
+
+**1. Brancher et faire confiance**  
+Brancher le câble (port USB 3.0), accepter "Faire confiance à cet ordinateur" sur l'iPhone + saisir le code.
+
+**2. Renommer l'adaptateur** pour cohérence avec les scripts :
+```powershell
+Rename-NetAdapter -Name "Ethernet 2" -NewName "iPhone USB"
+```
+> Le nom "Ethernet 2" peut varier — vérifier avec `Get-NetAdapter` si besoin.
+
+**3. Vérifier la métrique** (iPhone USB doit être inférieur à Wi-Fi) :
+```powershell
+Get-NetIPInterface -AddressFamily IPv4 | Sort-Object InterfaceMetric | Format-Table InterfaceAlias, InterfaceMetric, ConnectionState -AutoSize
+```
+Sortie attendue : `iPhone USB` = 25, `Wi-Fi` = 35. Corriger si besoin :
+```powershell
+Set-NetIPInterface -InterfaceAlias "iPhone USB" -InterfaceMetric 5
+```
+
+**4. Désactiver la gestion d'alimentation** (évite que Windows coupe l'adaptateur en jeu) :
+```powershell
+# En admin
+$netClass = "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}"
+Get-ChildItem $netClass -ErrorAction SilentlyContinue |
+    Where-Object { $_.PSChildName -match '^\d{4}$' } |
+    ForEach-Object {
+        $desc = (Get-ItemProperty $_.PSPath -Name DriverDesc -EA SilentlyContinue).DriverDesc
+        if ($desc -like "*Apple Mobile Device*") {
+            Set-ItemProperty $_.PSPath -Name PnPCapabilities -Value 24 -Type DWord
+            Write-Host "OK : $desc"
+        }
+    }
+```
+
+**5. Vérifier USB Selective Suspend** (doit être désactivé) :
+```powershell
+powercfg /query SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226
+# Index actuel AC et DC doivent être 0x00000000
+```
+Si `0x00000001`, forcer la désactivation :
+```powershell
+powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+powercfg /setdcvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+powercfg /s SCHEME_CURRENT
+```
+
+### Vérifier que la connexion USB est active
+
+```powershell
+Get-NetIPAddress -InterfaceAlias "iPhone USB" -AddressFamily IPv4
+# Doit afficher IPAddress : 172.20.10.x
+```
+
+Si `Disconnected` : vérifier que **Partage de connexion est ON** sur l'iPhone (une barre bleue "Partage de connexion : 1 connexion" doit apparaître en haut de l'écran iPhone).
+
+### Notes
+
+- **USB 2.0 peut ne pas fonctionner** avec certains câbles ANKER — toujours utiliser le port USB 3.0 (bleu)
+- iTunes peut interférer avec le tethering (il tente une synchro au branchement). Si la connexion USB ne s'établit pas : iTunes → Édition → Préférences → Appareils → cocher "Empêcher la synchronisation automatique"
+- WireGuard fonctionne par-dessus la connexion USB sans aucune modification
 
 ---
 
