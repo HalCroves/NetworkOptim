@@ -35,6 +35,7 @@
                       "SteelSeriesPrism",
                       "SteelSeriesSonar",
                       "Teams",
+                      "vgtray",
                       "WhatsApp.Root",
                       "WidgetBoard",
                       "WidgetService",
@@ -43,6 +44,6 @@
                       "XboxGameOverlay",
                       "XboxSpeechToTextOverlay"
                   ],
-    "lastUpdated":  "2026-05-17 15:47:19",
-    "count":  42
+    "lastUpdated":  "2026-05-17 20:42:50",
+    "count":  43
 }
