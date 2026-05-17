@@ -41,7 +41,7 @@ Exécuté automatiquement au lancement du jeu via `CS2-Launcher.ps1`.
 | **[7/8] QoS DSCP 46** | Expedited Forwarding sur `cs2.exe` + `wireguard.exe`, background throttlé à 1 Mbps (libère l'uplink 4G) |
 | **[8/8] Lancement** | Lance CS2 via Steam URI, attend le démarrage, applique priorité High + affinité CPU (exclut core 0/IRQ) |
 
-**Surveillance continue** : tant que CS2 est ouvert, le script re-kill les processus qui reviennent (toutes les 20s), mesure la latence (ping 1.1.1.1), et loggue les spikes > 150ms dans `latency-spikes.log`.
+**Surveillance continue** : tant que CS2 est ouvert, le script re-kill les processus qui reviennent (toutes les 20s), mesure la latence (ping 1.1.1.1 + VPS WireGuard), et loggue les spikes > 150ms **sur le VPS uniquement** dans `latency-spikes.log`. Un spike sur 1.1.1.1 sans spike VPS = la 4G est instable mais CS2 n'est pas impacté (le tunnel absorbe).
 
 **Restauration automatique** : à la fermeture de CS2, tous les paramètres modifiés (DNS, AutoTuning, NIC, QoS, services) sont restaurés depuis `wifi-gaming-backup.json`.
 
@@ -51,18 +51,29 @@ Tunnel VPN entre le PC Windows et un VPS Ionos à Paris.
 **Split tunnel** : seul le trafic vers les serveurs Valve est routé via le VPS. Le reste (Discord, navigateur, etc.) passe directement par la 4G.
 
 **Pourquoi ?**  
-La 4G via tethering iPhone donne une IP publique instable et un routage sous-optimal vers les datacenters Valve. Le VPS Paris offre un routage direct et une IP stable.
+La 4G via tethering iPhone emprunte des routeurs partagés, surchargés aux heures de pointe → latence variable, jitter. Le VPS Ionos Paris dispose d'une connexion datacenter directe vers les serveurs Valve, plus stable et prévisible.
+
+```
+Sans tunnel :  PC → 4G → routeurs opérateur (variables) → Valve
+Avec tunnel :  PC → 4G → VPS Ionos (stable, fq_codel+BBR) → Valve
+```
+
+Le tronçon instable (4G → VPS) est court. La partie VPS → Valve est datacenter-to-datacenter.
 
 **Ranges Valve routés via le tunnel :**
 ```
-155.133.224.0/19
-155.133.248.0/21
-185.25.182.0/23
-192.69.96.0/22
-208.64.200.0/22
-205.196.6.0/24
-209.197.3.0/24
+155.133.224.0/19  — bloc principal Valve (inclut tous les /24 Valve de 155.133.x.x)
+162.254.192.0/21  — relays EU (serveurs de matchmaking européens)
+185.25.182.0/23   — infrastructure EU Valve
+192.69.96.0/22    — Valve US/CDN
+208.64.200.0/22   — serveurs de jeu Valve
+208.78.164.0/22   — infra Valve additionnelle
+205.196.6.0/24    — Valve
+146.66.152.0/24   — Valve US
+146.66.155.0/24   — Valve US
+209.197.3.0/24    — Valve
 ```
+*Source : BGP AS32590 (Valve Corporation), mis à jour le 17/05/2026.*
 
 Le service WireGuard (`WireGuardTunnel$CS2-WG`) démarre **automatiquement** au boot Windows.
 
@@ -77,8 +88,17 @@ Même avec le tunnel actif, les pics de latence en jeu (typiquement +30–40 ms 
 | **BBR congestion control** | `net.ipv4.tcp_congestion_control=bbr` | Algorithme Google adaptatif, bien plus efficace que Cubic sur 4G variable |
 | **Default qdisc** | `net.core.default_qdisc=fq_codel` | Toute nouvelle interface hérite de fq_codel automatiquement |
 | **Service `tc-fq-codel`** | systemd unit enabled | fq_codel réappliqué automatiquement après chaque reboot |
+| **Buffers UDP** | `rmem_max/wmem_max = 26214400` | WireGuard est UDP pur — buffers par défaut Debian trop petits sous charge |
 
 Installation → voir [Anti-bufferbloat VPS (fq_codel + BBR)](#anti-bufferbloat-vps-fq_codel--bbr).
+
+### Tier 4 — Vérifications pré-lancement (CS2-Launcher.ps1)
+
+Avant chaque lancement, le launcher vérifie automatiquement :
+- **Tunnel WireGuard actif** : adapateur détecté + ping 10.66.66.1 réussi
+- **Tethering iPhone USB actif** : adaptateur "Apple Mobile Device Ethernet" détecté et `Up`
+
+Si l'une des deux conditions échoue → popup d'avertissement avec option de continuer quand même.
 
 ---
 
@@ -243,6 +263,22 @@ systemctl enable --now tc-fq-codel.service
 systemctl status tc-fq-codel.service --no-pager
 ```
 
+### Buffers UDP pour WireGuard (une fois)
+
+```bash
+cat << 'EOF' | sudo tee /etc/sysctl.d/99-wireguard-udp.conf
+net.core.rmem_default = 26214400
+net.core.wmem_default = 26214400
+net.core.rmem_max     = 26214400
+net.core.wmem_max     = 26214400
+net.core.netdev_max_backlog = 5000
+net.core.optmem_max   = 65536
+EOF
+sudo sysctl --system
+# Vérifier :
+sysctl net.core.rmem_max   # doit afficher 26214400
+```
+
 Sortie attendue du status :
 ```
 ● tc-fq-codel.service - fq_codel qdisc on ens6 + wg0
@@ -384,7 +420,7 @@ Get-Service 'WireGuardTunnel$CS2-WG'
 ping 10.66.66.1
 ```
 
-### Démarrer/arrêter le tunnel manuellement
+### Démarrer/arrêter/redémarrer le tunnel manuellement
 
 ```powershell
 # Démarrer (admin)
@@ -392,7 +428,12 @@ Start-Service 'WireGuardTunnel$CS2-WG'
 
 # Arrêter (admin)
 Stop-Service 'WireGuardTunnel$CS2-WG'
+
+# Redémarrer (ex: après modification de CS2-WG.conf)
+Restart-Service 'WireGuardTunnel$CS2-WG'
 ```
+
+> Via l'UI WireGuard : cliquer sur **CS2-WG** dans la liste à gauche → bouton **Désactiver** → puis **Activer**.
 
 ---
 
@@ -460,13 +501,15 @@ Si le compteur `transfer` augmente pendant la partie → CS2 passe bien par le t
 PrivateKey = <clé privée client>
 Address    = 10.66.66.2/32
 DNS        = 1.1.1.1
+MTU        = 1420
 
 [Peer]
 PublicKey         = <clé publique serveur>
 Endpoint          = <IP_VPS>:51820
-AllowedIPs        = 10.66.66.0/24, 155.133.224.0/19, 155.133.248.0/21, 185.25.182.0/23, 192.69.96.0/22, 208.64.200.0/22, 205.196.6.0/24, 209.197.3.0/24
+AllowedIPs        = 10.66.66.0/24, 155.133.224.0/19, 162.254.192.0/21, 185.25.182.0/23, 192.69.96.0/22, 208.64.200.0/22, 208.78.164.0/22, 205.196.6.0/24, 146.66.152.0/24, 146.66.155.0/24, 209.197.3.0/24
 PersistentKeepalive = 25
 ```
+> `MTU = 1420` évite la fragmentation UDP (overhead WireGuard/IPv4 = ~60 octets sur base 1500).
 
 **Serveur VPS** (`/etc/wireguard/wg0.conf`) :
 ```ini

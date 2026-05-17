@@ -596,6 +596,40 @@ function Refresh-DB {
 }
 
 # ================================================================
+#  VERIFICATIONS PRE-LANCEMENT (WireGuard + iPhone tethering)
+# ================================================================
+function Test-PreLaunch {
+    $warns = [System.Collections.Generic.List[string]]::new()
+
+    # --- WireGuard ---
+    $wgUp = Get-NetAdapter -EA SilentlyContinue |
+            Where-Object { $_.InterfaceDescription -like "*WireGuard*" -and $_.Status -eq "Up" }
+    if (-not $wgUp) {
+        $warns.Add("Tunnel WireGuard inactif — le trafic CS2 ne passera PAS par le VPS.")
+    } else {
+        $vpsOk = Test-Connection -ComputerName "10.66.66.1" -Count 1 -Quiet -EA SilentlyContinue
+        if (-not $vpsOk) {
+            $warns.Add("Adaptateur WireGuard present mais VPS (10.66.66.1) injoignable — tunnel peut-etre coupe.")
+        }
+    }
+
+    # --- iPhone USB tethering ---
+    $iphoneUp = Get-NetAdapter -EA SilentlyContinue |
+                Where-Object { $_.InterfaceDescription -like "*Apple Mobile Device*" -and $_.Status -eq "Up" }
+    if (-not $iphoneUp) {
+        $warns.Add("Tethering iPhone USB non detecte — verifie le cable et 'Partage de connexion'.")
+    }
+
+    if ($warns.Count -eq 0) { return $true }
+
+    $msg  = "Avertissements avant lancement :`n`n"
+    $msg += ($warns | ForEach-Object { "  - $_" }) -join "`n"
+    $msg += "`n`nLancer quand meme ?"
+    $res = [System.Windows.Forms.MessageBox]::Show($msg, "Verifications pre-lancement", "YesNo", "Warning")
+    return ($res -eq "Yes")
+}
+
+# ================================================================
 #  TIMER — polling du background job toutes les 200ms
 # ================================================================
 $timer = New-Object System.Windows.Forms.Timer
@@ -667,6 +701,8 @@ $btnStart.add_Click({
         return
     }
 
+    if (-not (Test-PreLaunch)) { return }
+
     $rtb.Clear()
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"
     Refresh-Stats
@@ -717,6 +753,7 @@ $btnRelaunch.add_Click({
         $timer.Stop()
     }
     if (-not (Test-Path $mainScript)) { return }
+    if (-not (Test-PreLaunch)) { return }
 
     $rtb.Clear()
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"
