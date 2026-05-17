@@ -3,6 +3,8 @@
 Optimiseur réseau pour CS2 (et autres jeux) sous Windows, conçu pour une connexion 4G/tethering instable.  
 Comprend un tunnel WireGuard vers un VPS Ionos (Paris) pour stabiliser le routage vers les serveurs Valve.
 
+![Screenshot of a comment on a GitHub issue showing an image, added in the Markdown, of an Octocat smiling and raising a tentacle.](https://media.discordapp.net/attachments/1500120485290315877/1505465053485465670/image.png?ex=6a0ab916&is=6a096796&hm=1f7f9b580119494cdedba145c78ee02ff09e875967676cf83acbaf5be06ed6cc&)
+
 ---
 
 ## Sommaire
