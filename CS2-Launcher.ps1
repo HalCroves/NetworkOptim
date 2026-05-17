@@ -74,10 +74,11 @@ $optimBlock = {
 
     # Injecter les params du jeu selectionne (lisibles dans le script dot-source)
     if ($gameParams) {
-        $GameExe   = $gameParams.Exe
-        $GameName  = $gameParams.Name
-        $GamePath  = if ($gameParams.InstallPath) { $gameParams.InstallPath } else { "" }
-        $LaunchUri = if ($gameParams.LaunchUri)   { $gameParams.LaunchUri   } else { "" }
+        $GameExe      = $gameParams.Exe
+        $GameName     = $gameParams.Name
+        $GamePlatform = if ($gameParams.Platform) { $gameParams.Platform } else { "Steam" }
+        $GamePath     = if ($gameParams.InstallPath) { $gameParams.InstallPath } else { "" }
+        $LaunchUri    = if ($gameParams.LaunchUri)   { $gameParams.LaunchUri   } else { "" }
     }
     # Dot-source le script principal dans ce contexte :
     # toutes ses fonctions heritent de notre Write-Host ci-dessus
@@ -259,20 +260,20 @@ function Get-InstalledGames {
 
     # ── Riot Games — detection entierement dynamique ──
     $riotRoot   = $null
-    $riotUriMap = @{}
+    $riotUriMap = @{}   # protocol-name (lowercase, ex: "valorant") -> uri (ex: "valorant://")
+    $riotSvcExe = $null
 
     # M1 : scan de TOUS les protocoles utilisateur (HKCU:\Software\Classes) en un seul passage
-    # -> detecte RiotClientServices.exe sans connaitre les noms de protocoles a l'avance
-    # -> construit la map exe-name -> uri pour les LaunchUri
+    # Tous les jeux Riot utilisent RiotClientServices.exe -> on mappe protocol-name -> uri
+    # (le nom du protocole = le product-name du jeu, ex: "valorant", "leagueoflegends")
     foreach ($hkc in @(Get-ChildItem 'HKCU:\Software\Classes' -EA SilentlyContinue)) {
         $rcmd = (Get-ItemProperty "$($hkc.PSPath)\shell\open\command" -EA SilentlyContinue).'(default)'
         if (-not $rcmd) { continue }
-        if (-not $riotRoot -and $rcmd -match '"([^"]+[/\\]RiotClientServices\.exe)"') {
-            $riotRoot = Split-Path (Split-Path $Matches[1])
-        }
-        if ($rcmd -match '"([^"]+\.exe)"') {
-            $ek = [IO.Path]::GetFileNameWithoutExtension($Matches[1]).ToLower()
-            if (-not $riotUriMap.ContainsKey($ek)) { $riotUriMap[$ek] = "$($hkc.PSChildName)://" }
+        if ($rcmd -match '"([^"]+[/\\]RiotClientServices\.exe)"') {
+            if (-not $riotSvcExe) { $riotSvcExe = $Matches[1] }
+            if (-not $riotRoot)   { $riotRoot = Split-Path (Split-Path $Matches[1]) }
+            $proto = $hkc.PSChildName.ToLower()
+            if (-not $riotUriMap.ContainsKey($proto)) { $riotUriMap[$proto] = "${proto}://" }
         }
     }
 
@@ -296,23 +297,39 @@ function Get-InstalledGames {
     }
 
     if ($riotRoot) {
-        # Scan dynamique de tous les sous-dossiers du root Riot (skip le launcher)
-        # Nom du dossier = nom du jeu, exe trouve dynamiquement, URI derivee de la map
         foreach ($rDir in @(Get-ChildItem $riotRoot -Directory -EA SilentlyContinue)) {
             if ($rDir.Name -match 'Riot.?Client') { continue }
             $rpath = $null
             if     (Test-Path "$($rDir.FullName)\live") { $rpath = "$($rDir.FullName)\live" }
             elseif (Test-Path $rDir.FullName)           { $rpath = $rDir.FullName }
             if (-not $rpath) { continue }
-            $rexe = Get-ChildItem $rpath -Filter '*.exe' -Depth 2 -EA SilentlyContinue |
-                    Where-Object { $_.Name -notmatch 'Crash|Setup|Unins|RiotClient|Launcher' } |
-                    Sort-Object Length -Descending | Select-Object -First 1
-            if (-not $rexe -or -not $added.Add($rDir.Name)) { continue }
-            $rek  = [IO.Path]::GetFileNameWithoutExtension($rexe.Name).ToLower()
+
+            # Trouver l'URI : le nom du protocole Riot = dir-name normalise (sans espaces/tirets, lowercase)
+            # ex: "VALORANT" -> "valorant", "League of Legends" -> "leagueoflegends"
+            $dirKey = ($rDir.Name.ToLower() -replace '[^a-z0-9]', '')
             $ruri = ''
-            if ($riotUriMap.ContainsKey($rek)) { $ruri = $riotUriMap[$rek] }
+            if ($riotUriMap.ContainsKey($dirKey)) {
+                $ruri = $riotUriMap[$dirKey]
+            } else {
+                # Fuzzy : protocole qui commence par ou contient le dirKey
+                $fmatch = $riotUriMap.Keys | Where-Object { $_ -like "$dirKey*" -or $dirKey -like "$_*" } | Select-Object -First 1
+                if ($fmatch) { $ruri = $riotUriMap[$fmatch] }
+            }
+
+            # Si toujours pas d'URI, lancer via RiotClientServices directement avec --launch-product
+            if (-not $ruri -and $riotSvcExe) {
+                $ruri = "`"$riotSvcExe`" --launch-product=$dirKey --launch-patchline=live"
+            }
+
+            # Trouver l'exe du jeu (depth 5 pour couvrir ShooterGame\Binaries\Win64\)
+            $rexe = Get-ChildItem $rpath -Filter '*.exe' -Depth 5 -EA SilentlyContinue |
+                    Where-Object { $_.Name -notmatch 'Crash|Setup|Unins|RiotClient|Launcher|vcredist|directx|UnityCrash' } |
+                    Sort-Object Length -Descending | Select-Object -First 1
+            $exeName = if ($rexe) { [IO.Path]::GetFileNameWithoutExtension($rexe.Name) } else { $rDir.Name }
+
+            if (-not $added.Add($rDir.Name)) { continue }
             $found.Add([PSCustomObject]@{
-                Name=$rDir.Name; Exe=[IO.Path]::GetFileNameWithoutExtension($rexe.Name)
+                Name=$rDir.Name; Exe=$exeName
                 LaunchUri=$ruri; Platform='Riot'; InstallPath=$rpath
             })
         }

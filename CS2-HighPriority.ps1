@@ -4,8 +4,9 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 # ── Params jeu (injectes par CS2-Launcher via dot-source ; valeurs par defaut = CS2) ──────────
-if (-not (Get-Variable -Name GameExe   -EA SilentlyContinue)) { $GameExe   = "cs2" }
-if (-not (Get-Variable -Name GameName  -EA SilentlyContinue)) { $GameName  = "CS2" }
+if (-not (Get-Variable -Name GameExe      -EA SilentlyContinue)) { $GameExe      = "cs2" }
+if (-not (Get-Variable -Name GameName     -EA SilentlyContinue)) { $GameName     = "CS2" }
+if (-not (Get-Variable -Name GamePlatform -EA SilentlyContinue)) { $GamePlatform = "Steam" }
 if (-not (Get-Variable -Name GamePath  -EA SilentlyContinue)) { $GamePath  = "" }
 if (-not (Get-Variable -Name LaunchUri -EA SilentlyContinue)) { $LaunchUri = "steam://rungameid/730" }
 # ============================================================
@@ -179,6 +180,16 @@ $whitelist = @(
     "cmd","wscript","cscript","msiexec","rundll32","dllhost"
 )
 
+# Processus launcher/anti-cheat a proteger selon la plateforme du jeu lance
+switch ($GamePlatform) {
+    "Riot"       { $whitelist += @("RiotClientServices","RiotClientCrashHandler","RiotClientUx","RiotClientUxRender","Riot Client","vgtray","vgc","EpicWebHelper","EOSUserHelper","EpicOnlineServices","VALORANT-Win64-Shipping","League of Legends","LeagueClient","LeagueClientUx") }
+    "Epic"       { $whitelist += @("EpicGamesLauncher","EpicWebHelper","EOSUserHelper","EpicOnlineServices") }
+    "Battle.net" { $whitelist += @("Battle.net","Agent") }
+    "Ubisoft"    { $whitelist += @("UbisoftGameLauncher","UbisoftConnect","upc") }
+}
+# Toujours proteger l'executable du jeu lui-meme (evite de blacklister le jeu au premier lancement)
+if ($GameExe -and $GameExe -notin $whitelist) { $whitelist += $GameExe }
+
 $knownKillList = @(
     # Cloud / sync
     "OneDrive","Dropbox","GoogleDriveFS","googledrivesync",
@@ -230,7 +241,8 @@ if (Test-Path $blacklistFile) {
 }
 
 # Merger avec la seed (nouvelles entrees du code ajoutees automatiquement)
-$knownKillList | ForEach-Object { [void]$killList.Add($_) }
+# Respecter la whitelist : ne pas re-ajouter un process protege par la plateforme (ex: vgtray sous Riot)
+$knownKillList | Where-Object { $_ -notin $whitelist } | ForEach-Object { [void]$killList.Add($_) }
 Save-Blacklist -List $killList -Path $blacklistFile
 
 foreach ($proc in $killList) {
@@ -604,7 +616,7 @@ if ($cs2) {
                     if ($isVps_) {
                         # VPS = route CS2 reelle -> spike critique, logue
                         $pCol_  = if ($maxMs_ -gt 150) { 'Red' } elseif ($maxMs_ -gt 80) { 'DarkYellow' } else { 'Green' }
-                        $spike_ = if ($maxMs_ -gt 150) { '  ** SPIKE CS2 **' } else { '' }
+                        $spike_ = if ($maxMs_ -gt 150) { "  ** SPIKE $GameName **" } else { '' }
                         Write-Host "  [PING] $label_  avg=${avgMs_}ms  max=${maxMs_}ms  jitter=${jitter_}ms$spike_" -ForegroundColor $pCol_
                         if ($maxMs_ -gt 150) {
                             "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | $GameName | VPS | avg=${avgMs_}ms max=${maxMs_}ms jitter=${jitter_}ms" |
