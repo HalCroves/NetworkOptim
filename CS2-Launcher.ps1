@@ -28,6 +28,11 @@ $mainScript = Join-Path $scriptDir "CS2-HighPriority.ps1"
 $jsonFile   = Join-Path $scriptDir "process-blacklist.json"
 $restorePs  = Join-Path $scriptDir "Restore-NetworkOptim.ps1"
 
+# ── WireGuard ─────────────────────────────────────────────────────────
+$wgConfPath      = "C:\ProgramData\WireGuard\CS2-WG.conf"
+$wgSvcName       = 'WireGuardTunnel$CS2-WG'
+$splitAllowedIPs = "10.66.66.0/24, 155.133.224.0/19, 162.254.192.0/21, 185.25.182.0/23, 192.69.96.0/22, 208.64.200.0/22, 208.78.164.0/22, 205.196.6.0/24, 146.66.152.0/24, 146.66.155.0/24, 209.197.3.0/24"
+
 # ── Etat session ───────────────────────────────────────────────────────
 $g = @{ PS = $null; RS = $null; Async = $null
          Queue = $null; Kills = 0; Cycles = 0; Iface = "-" }
@@ -596,6 +601,36 @@ function Refresh-DB {
 }
 
 # ================================================================
+#  GESTION MODE TUNNEL WIREGUARD (split / full)
+# ================================================================
+function Get-TunnelModeForGame($game) {
+    if (-not $game) { return "split" }
+    if ($game.LaunchUri -eq "steam://rungameid/730" -or
+        $game.Exe       -match '^cs2$' -or
+        $game.Name      -match 'Counter-Strike') { return "split" }
+    return "full"
+}
+
+function Set-TunnelMode([string]$Mode) {
+    if (-not (Test-Path $wgConfPath)) {
+        Append-Log "  [WG] Config introuvable : $wgConfPath" ([System.Drawing.Color]::FromArgb(215, 80, 80))
+        return
+    }
+    $newIPs = if ($Mode -eq "full") { "0.0.0.0/0" } else { $splitAllowedIPs }
+    try {
+        $conf = [System.IO.File]::ReadAllText($wgConfPath, [System.Text.Encoding]::UTF8)
+        $conf = [regex]::Replace($conf, '(?m)^AllowedIPs\s*=.*$', "AllowedIPs = $newIPs")
+        [System.IO.File]::WriteAllText($wgConfPath, $conf.TrimEnd(), [System.Text.Encoding]::UTF8)
+        Restart-Service $wgSvcName -EA Stop
+        $modeLabel = if ($Mode -eq "full") { "TUNNEL COMPLET  (0.0.0.0/0)" } else { "SPLIT TUNNEL  (Valve IPs)" }
+        $col = if ($Mode -eq "full") { [System.Drawing.Color]::FromArgb(190, 150, 45) } else { [System.Drawing.Color]::FromArgb(75, 200, 115) }
+        Append-Log "  [WG] Mode : $modeLabel" $col
+    } catch {
+        Append-Log "  [WG] Erreur changement mode : $($_.Exception.Message)" ([System.Drawing.Color]::FromArgb(215, 80, 80))
+    }
+}
+
+# ================================================================
 #  VERIFICATIONS PRE-LANCEMENT (WireGuard + iPhone tethering)
 # ================================================================
 function Test-PreLaunch {
@@ -707,6 +742,11 @@ $btnStart.add_Click({
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"
     Refresh-Stats
 
+    # Basculer le mode tunnel selon le jeu selectionne
+    $selKeyEarly  = $cmbGame.SelectedItem
+    $selGameEarly = if ($selKeyEarly -and $gameMap.ContainsKey($selKeyEarly)) { $gameMap[$selKeyEarly] } else { $null }
+    Set-TunnelMode (Get-TunnelModeForGame $selGameEarly)
+
     # File de logs thread-safe partagee entre Runspace (ecrit) et timer UI (lit)
     $g.Queue = [System.Collections.Concurrent.ConcurrentQueue[psobject]]::new()
 
@@ -758,6 +798,12 @@ $btnRelaunch.add_Click({
     $rtb.Clear()
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"
     Refresh-Stats
+
+    # Basculer le mode tunnel selon le jeu selectionne
+    $selKeyEarlyR  = $cmbGame.SelectedItem
+    $selGameEarlyR = if ($selKeyEarlyR -and $gameMap.ContainsKey($selKeyEarlyR)) { $gameMap[$selKeyEarlyR] } else { $null }
+    Set-TunnelMode (Get-TunnelModeForGame $selGameEarlyR)
+
     $g.Queue = [System.Collections.Concurrent.ConcurrentQueue[psobject]]::new()
 
     $rs = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace()
@@ -799,6 +845,7 @@ $btnStop.add_Click({
         $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(195, 75, 75)
         Append-Log "" $defCol
         Append-Log "  Session arretee." ([System.Drawing.Color]::FromArgb(195, 75, 75))
+        Set-TunnelMode "split"
         if (Test-Path $restorePs) {
             Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$restorePs`"" -Verb RunAs -WindowStyle Hidden
             Append-Log "  Restauration reseau lancee en arriere-plan..." ([System.Drawing.Color]::FromArgb(75, 200, 115))

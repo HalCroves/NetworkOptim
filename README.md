@@ -19,6 +19,7 @@ Comprend un tunnel WireGuard vers un VPS Ionos (Paris) pour stabiliser le routag
 - [Configuration CS2 (autoexec.cfg)](#configuration-cs2-autoexeccfg)
 - [Tethering iPhone USB](#tethering-iphone-usb)
 - [Utilisation](#utilisation)
+- [Routage automatique par jeu (split / full tunnel)](#routage-automatique-par-jeu-split--full-tunnel)
 - [Vérifier que CS2 passe par le tunnel](#vérifier-que-cs2-passe-par-le-tunnel)
 - [Configuration WireGuard actuelle](#configuration-wireguard-actuelle)
 - [Désinstallation complète du tunnel](#désinstallation-complète-du-tunnel)
@@ -112,6 +113,20 @@ Avant chaque lancement, le launcher vérifie automatiquement :
 - **Tethering iPhone USB actif** : adaptateur "Apple Mobile Device Ethernet" détecté et `Up`
 
 Si l'une des deux conditions échoue → popup d'avertissement avec option de continuer quand même.
+
+### Tier 5 — Routage automatique par jeu (split / full tunnel)
+
+Le launcher détecte automatiquement le jeu sélectionné et configure le mode tunnel WireGuard en conséquence :
+
+| Jeu sélectionné | Mode tunnel | `AllowedIPs` appliqué |
+|---|---|---|
+| **CS2** | Split tunnel | IPs Valve uniquement |
+| **Tout autre jeu** | Tunnel complet | `0.0.0.0/0` |
+
+- **Lancer / Relancer** → bascule vers le bon mode avant de démarrer (~2 s le temps du redémarrage du service)
+- **Arrêter** → restaure automatiquement le split tunnel (IPs Valve)
+
+Le mode appliqué est affiché dans le log du launcher : `[WG] Mode : TUNNEL COMPLET (0.0.0.0/0)` ou `[WG] Mode : SPLIT TUNNEL (Valve IPs)`.
 
 ---
 
@@ -449,6 +464,63 @@ Restart-Service 'WireGuardTunnel$CS2-WG'
 ```
 
 > Via l'UI WireGuard : cliquer sur **CS2-WG** dans la liste à gauche → bouton **Désactiver** → puis **Activer**.
+
+---
+
+## Routage automatique par jeu (split / full tunnel)
+
+Le launcher `CS2-Launcher.ps1` gère automatiquement le mode du tunnel WireGuard selon le jeu sélectionné dans la liste déroulante.
+
+### Comment ça fonctionne
+
+**Split tunnel (CS2)** : seules les IPs Valve sont routées via le VPS. Le reste du trafic (Discord, navigateur, téléchargements…) passe directement par la 4G. Mode minimal, optimal pour CS2.
+
+**Tunnel complet (autres jeux)** : tout le trafic réseau transite via le VPS Paris. Les serveurs de jeu d'Epic, EA, Riot, Ubisoft, etc. bénéficient ainsi du même routage stable que CS2.
+
+```
+CS2 sélectionné     :  PC → 4G → VPS → [IPs Valve seulement]
+Autre jeu sélectionné :  PC → 4G → VPS → [tout Internet]
+```
+
+### Comportement automatique
+
+1. **Clic sur "Lancer" ou "Relancer"** :
+   - Détecte si le jeu sélectionné est CS2 (`steam://rungameid/730`)
+   - Modifie `AllowedIPs` dans `C:\ProgramData\WireGuard\CS2-WG.conf`
+   - Redémarre `WireGuardTunnel$CS2-WG` pour appliquer
+   - Log dans le RTB : `[WG] Mode : TUNNEL COMPLET` ou `[WG] Mode : SPLIT TUNNEL`
+
+2. **Clic sur "Arrêter"** : restaure automatiquement le split tunnel (IPs Valve), quelle que soit la session précédente.
+
+### Pourquoi pas un tunnel complet permanent ?
+
+| | Split tunnel | Tunnel complet |
+|---|---|---|
+| **Trafic VPS** | Minimal (IPs Valve) | Tout (Discord, browser…) |
+| **Téléchargements Steam** | Direct (4G) | Transite par le VPS |
+| **Géolocalisation** | IP 4G française | IP du VPS (Ionos Paris) |
+| **Si VPS tombe** | Seul le jeu impacté | Plus d'internet du tout |
+
+Le split tunnel permanent en dehors des sessions de jeu évite ces effets de bord.
+
+### Changer le mode manuellement
+
+Si tu veux forcer un mode sans passer par le launcher :
+
+```powershell
+# Forcer le tunnel complet (admin)
+$conf = Get-Content 'C:\ProgramData\WireGuard\CS2-WG.conf' -Raw
+$conf = $conf -replace '(?m)^AllowedIPs\s*=.*$', 'AllowedIPs = 0.0.0.0/0'
+Set-Content 'C:\ProgramData\WireGuard\CS2-WG.conf' $conf
+Restart-Service 'WireGuardTunnel$CS2-WG'
+
+# Restaurer le split tunnel (admin)
+$splitIPs = '10.66.66.0/24, 155.133.224.0/19, 162.254.192.0/21, 185.25.182.0/23, 192.69.96.0/22, 208.64.200.0/22, 208.78.164.0/22, 205.196.6.0/24, 146.66.152.0/24, 146.66.155.0/24, 209.197.3.0/24'
+$conf = Get-Content 'C:\ProgramData\WireGuard\CS2-WG.conf' -Raw
+$conf = $conf -replace '(?m)^AllowedIPs\s*=.*$', "AllowedIPs = $splitIPs"
+Set-Content 'C:\ProgramData\WireGuard\CS2-WG.conf' $conf
+Restart-Service 'WireGuardTunnel$CS2-WG'
+```
 
 ---
 
