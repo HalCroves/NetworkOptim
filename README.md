@@ -83,6 +83,15 @@ Le service WireGuard (`WireGuardTunnel$CS2-WG`) démarre **automatiquement** au 
 
 Même avec le tunnel actif, les pics de latence en jeu (typiquement +30–40 ms pendant les rounds) sont causés par du **bufferbloat** : les bursts UDP de CS2 saturent la file d'attente du lien 4G et des interfaces du VPS, créant un retard de queuing.
 
+**fq_codel** *(Fair Queuing Controlled Delay)* — algorithme de gestion de file d'attente réseau. Plutôt que d'accumuler les paquets dans un buffer (ce qui crée du délai), il les distribue équitablement et abandonne proactivement les paquets en retard. Résultat : la latence reste stable même quand la connexion est chargée.
+
+**BBR** *(Bottleneck Bandwidth and Round-trip propagation time)* — algorithme de contrôle de congestion TCP développé par Google. Contrairement à l'algorithme classique (Cubic) qui détecte la congestion *après* avoir perdu des paquets, BBR modélise la bande passante disponible en temps réel et adapte son débit en continu. Beaucoup plus efficace sur une connexion variable comme la 4G.
+
+```
+Sans fq_codel+BBR :  burst CS2 → buffer plein → délai queuing → spike de latence
+Avec fq_codel+BBR  :  burst CS2 → file gérée équitablement → latence stable
+```
+
 | Composant | Configuration | Effet |
 |-----------|--------------|-------|
 | **fq_codel sur `ens6`** | `tc qdisc replace dev ens6 root fq_codel` | Élimine l'accumulation de paquets sur l'interface physique du VPS |
