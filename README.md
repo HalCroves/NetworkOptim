@@ -5,6 +5,8 @@ Comprend un tunnel WireGuard vers un VPS Ionos (Paris) pour stabiliser le routag
 
 ![Screenshot of a comment on a GitHub issue showing an image, added in the Markdown, of an Octocat smiling and raising a tentacle.](https://media.discordapp.net/attachments/1500120485290315877/1505465053485465670/image.png?ex=6a0ab916&is=6a096796&hm=1f7f9b580119494cdedba145c78ee02ff09e875967676cf83acbaf5be06ed6cc&=&format=webp&quality=lossless)
 
+![Screenshot of a comment on a GitHub issue showing an image, added in the Markdown, of an Octocat smiling and raising a tentacle.](https://cdn.discordapp.com/attachments/1500120485290315877/1505472480070860841/image.png?ex=6a0ac001&is=6a096e81&hm=65bce9916d7a95edbe5d1b18522d2c916c75547e926cf94cd12a596a519b5962&)
+
 ---
 
 ## Sommaire
