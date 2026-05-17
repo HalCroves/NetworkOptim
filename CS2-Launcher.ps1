@@ -638,7 +638,12 @@ function Set-TunnelMode([string]$Mode) {
         $conf = [System.IO.File]::ReadAllText($wgConfPath, [System.Text.Encoding]::UTF8)
         $conf = [regex]::Replace($conf, '(?m)^AllowedIPs\s*=.*$', "AllowedIPs = $newIPs")
         [System.IO.File]::WriteAllText($wgConfPath, $conf.TrimEnd(), [System.Text.Encoding]::UTF8)
-        Restart-Service $wgSvcName -EA Stop
+        # Restart-Service ne relit pas le .conf (WireGuard Windows charge depuis la registry).
+        # Il faut uninstall + reinstall pour que le service recharge le fichier.
+        $wgExe = 'C:\Program Files\WireGuard\wireguard.exe'
+        & $wgExe /uninstalltunnelservice CS2-WG 2>$null
+        Start-Sleep -Milliseconds 800
+        & $wgExe /installtunnelservice $wgConfPath 2>$null
         $modeLabel = if ($Mode -eq "full") { "TUNNEL COMPLET  (0.0.0.0/0)" } else { "SPLIT TUNNEL  (Valve IPs)" }
         $col = if ($Mode -eq "full") { [System.Drawing.Color]::FromArgb(190, 150, 45) } else { [System.Drawing.Color]::FromArgb(75, 200, 115) }
         Append-Log "  [WG] Mode : $modeLabel" $col
