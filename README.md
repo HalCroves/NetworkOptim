@@ -348,7 +348,7 @@ Sortie attendue : `iPhone USB` = 25, `Wi-Fi` = 35. Corriger si besoin :
 Set-NetIPInterface -InterfaceAlias "iPhone USB" -InterfaceMetric 5
 ```
 
-**4. Désactiver la gestion d'alimentation** (évite que Windows coupe l'adaptateur en jeu) :
+**4. Désactiver la gestion d'alimentation NIC** (évite que Windows coupe l'adaptateur en jeu) :
 ```powershell
 # En admin
 $netClass = "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}"
@@ -362,8 +362,9 @@ Get-ChildItem $netClass -ErrorAction SilentlyContinue |
         }
     }
 ```
+> `PnPCapabilities = 24` interdit à Windows d'éteindre l'adaptateur réseau pour économiser de l'énergie. Sans ça, la connexion USB peut se couper brutalement pendant une partie.
 
-**5. Vérifier USB Selective Suspend** (doit être désactivé) :
+**5. Désactiver USB Selective Suspend** (mécanisme complémentaire au niveau du port USB) :
 ```powershell
 powercfg /query SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226
 # Index actuel AC et DC doivent être 0x00000000
@@ -374,6 +375,7 @@ powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48
 powercfg /setdcvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
 powercfg /s SCHEME_CURRENT
 ```
+> USB Selective Suspend est un mécanisme Windows qui coupe l'alimentation du port USB en cas d'inactivité. L'étape 4 protège le driver réseau, l'étape 5 protège le port physique — les deux sont nécessaires.
 
 ### Vérifier que la connexion USB est active
 
