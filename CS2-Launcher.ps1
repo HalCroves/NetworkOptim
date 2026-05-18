@@ -37,6 +37,15 @@ $splitAllowedIPs = "10.66.66.0/24, 155.133.224.0/19, 162.254.192.0/21, 185.25.18
 $g = @{ PS = $null; RS = $null; Async = $null
          Queue = $null; Kills = 0; Cycles = 0; Iface = "-" }
 
+# ── Logs persistants + historique ─────────────────────────────────────
+$logDir      = Join-Path $scriptDir "logs"
+$historyFile = Join-Path $scriptDir "sessions-history.json"
+$prefsFile   = Join-Path $scriptDir "prefs.json"
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+$script:sessionLogFile = $null
+$script:sessionData    = $null
+$script:forceFull      = $false
+
 # ── Lecture DB initiale ───────────────────────────────────────────────
 $dbCount = 0; $dbDate = ""
 if (Test-Path $jsonFile) {
@@ -391,7 +400,7 @@ function Get-InstalledGames {
 # ================================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text            = "CS2 Optimizer"
-$form.ClientSize      = New-Object System.Drawing.Size(700, 590)
+$form.ClientSize      = New-Object System.Drawing.Size(700, 670)
 $form.BackColor       = [System.Drawing.Color]::FromArgb(16, 16, 26)
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
@@ -418,9 +427,36 @@ $lblStatus.Text      = "●  En attente"
 $lblStatus.Font      = New-Object System.Drawing.Font("Segoe UI", 9)
 $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 125)
 $lblStatus.Location  = New-Object System.Drawing.Point(290, 0)
-$lblStatus.Size      = New-Object System.Drawing.Size(300, 40)
+$lblStatus.Size      = New-Object System.Drawing.Size(180, 40)
 $lblStatus.TextAlign = "MiddleLeft"
 $pnlHead.Controls.Add($lblStatus)
+
+$lblTether = New-Object System.Windows.Forms.Label
+$lblTether.Text      = "USB ○"
+$lblTether.Font      = New-Object System.Drawing.Font("Segoe UI", 8)
+$lblTether.ForeColor = [System.Drawing.Color]::FromArgb(215, 80, 80)
+$lblTether.Location  = New-Object System.Drawing.Point(472, 0)
+$lblTether.Size      = New-Object System.Drawing.Size(50, 40)
+$lblTether.TextAlign = "MiddleCenter"
+$pnlHead.Controls.Add($lblTether)
+
+$lblWGStatus = New-Object System.Windows.Forms.Label
+$lblWGStatus.Text      = "WG ○"
+$lblWGStatus.Font      = New-Object System.Drawing.Font("Segoe UI", 8)
+$lblWGStatus.ForeColor = [System.Drawing.Color]::FromArgb(215, 80, 80)
+$lblWGStatus.Location  = New-Object System.Drawing.Point(524, 0)
+$lblWGStatus.Size      = New-Object System.Drawing.Size(50, 40)
+$lblWGStatus.TextAlign = "MiddleCenter"
+$pnlHead.Controls.Add($lblWGStatus)
+
+$lblTunnel = New-Object System.Windows.Forms.Label
+$lblTunnel.Text      = "SPLIT"
+$lblTunnel.Font      = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+$lblTunnel.ForeColor = [System.Drawing.Color]::FromArgb(75, 200, 115)
+$lblTunnel.Location  = New-Object System.Drawing.Point(576, 0)
+$lblTunnel.Size      = New-Object System.Drawing.Size(118, 40)
+$lblTunnel.TextAlign = "MiddleCenter"
+$pnlHead.Controls.Add($lblTunnel)
 
 # ── Game bar ─────────────────────────────────────────────────────
 $pnlGame = New-Object System.Windows.Forms.Panel
@@ -459,7 +495,7 @@ $pnlGame.Controls.Add($lblPlatform)
 # ── RichTextBox log ──────────────────────────────────────────────
 $rtb = New-Object System.Windows.Forms.RichTextBox
 $rtb.Location    = New-Object System.Drawing.Point(8, 92)
-$rtb.Size        = New-Object System.Drawing.Size(503, 484)
+$rtb.Size        = New-Object System.Drawing.Size(503, 564)
 $rtb.BackColor   = [System.Drawing.Color]::FromArgb(9, 9, 16)
 $rtb.ForeColor   = [System.Drawing.Color]::FromArgb(165, 165, 185)
 $rtb.Font        = New-Object System.Drawing.Font("Consolas", 8.5)
@@ -472,7 +508,7 @@ $form.Controls.Add($rtb)
 # ── Panel droit ───────────────────────────────────────────────────────
 $pnlR = New-Object System.Windows.Forms.Panel
 $pnlR.Location  = New-Object System.Drawing.Point(519, 92)
-$pnlR.Size      = New-Object System.Drawing.Size(173, 492)
+$pnlR.Size      = New-Object System.Drawing.Size(173, 572)
 $pnlR.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 32)
 $form.Controls.Add($pnlR)
 
@@ -514,16 +550,26 @@ $pnlR.Controls.Add($sep1)
 $btnJson    = mkBtn "  Ouvrir .json"     158  $cDark   $false
 $btnRestore = mkBtn "  Restaurer reseau" 204  $cDark   $false
 $btnClearDB = mkBtn "  Vider blacklist"  250  $cDark   $false
+$btnRefresh = mkBtn "  Rafraichir jeux"  296  $cDark   $false
+
+$chkForceFull = New-Object System.Windows.Forms.CheckBox
+$chkForceFull.Text      = "  Forcer Full Tunnel"
+$chkForceFull.Font      = New-Object System.Drawing.Font("Segoe UI", 8)
+$chkForceFull.ForeColor = [System.Drawing.Color]::FromArgb(190, 150, 45)
+$chkForceFull.Location  = New-Object System.Drawing.Point(8, 340)
+$chkForceFull.Size      = New-Object System.Drawing.Size(157, 28)
+$chkForceFull.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 32)
+$pnlR.Controls.Add($chkForceFull)
 
 # Separateur
 $sep2 = New-Object System.Windows.Forms.Label
-$sep2.Location  = New-Object System.Drawing.Point(8, 299)
+$sep2.Location  = New-Object System.Drawing.Point(8, 375)
 $sep2.Size      = New-Object System.Drawing.Size(157, 1)
 $sep2.BackColor = [System.Drawing.Color]::FromArgb(40, 40, 60)
 $pnlR.Controls.Add($sep2)
 
-$btnClearLog  = mkBtn "  Effacer logs"    307  $cDarker $false
-$btnSpeedtest = mkBtn "  Speedtest"       352  $cDark   $false
+$btnClearLog  = mkBtn "  Effacer logs"    383  $cDarker $false
+$btnSpeedtest = mkBtn "  Speedtest"       429  $cDark   $false
 
 $btnStop.Enabled     = $false
 $btnRelaunch.Enabled = $false
@@ -552,19 +598,34 @@ function Update-GameSelection {
         $sn = $g_.Name
         if ($sn.Length -gt 13) { $sn = $sn.Substring(0, 13) + "..." }
         $btnStart.Text = "  Lancer $sn"
+        # Mettre à jour l'indicateur de mode sans changer les AllowedIPs
+        $mode_ = Get-TunnelModeForGame $g_
+        $lblTunnel.Text      = if ($mode_ -eq "full") { "FULL" } else { "SPLIT" }
+        $lblTunnel.ForeColor = if ($mode_ -eq "full") { [System.Drawing.Color]::FromArgb(190, 150, 45) } else { [System.Drawing.Color]::FromArgb(75, 200, 115) }
     }
 }
 if ($cmbGame.Items.Count -gt 0) {
     $cmbGame.SelectedIndex = 0
     Update-GameSelection
 }
-$cmbGame.add_SelectedIndexChanged({ Update-GameSelection })
+# Recharger la derniere selection depuis prefs
+if (Test-Path $prefsFile) {
+    $prefs_ = Get-Content $prefsFile -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue
+    if ($prefs_ -and $prefs_.lastGame) {
+        $idx_ = $cmbGame.Items.IndexOf($prefs_.lastGame)
+        if ($idx_ -ge 0) { $cmbGame.SelectedIndex = $idx_; Update-GameSelection }
+    }
+}
+$cmbGame.add_SelectedIndexChanged({
+    Update-GameSelection
+    try { @{ lastGame = $cmbGame.SelectedItem } | ConvertTo-Json | Set-Content -Encoding UTF8 $prefsFile -EA SilentlyContinue } catch {}
+})
 
 # ── Stats label ───────────────────────────────────────────────────────
 $lblStats = New-Object System.Windows.Forms.Label
 $lblStats.Font      = New-Object System.Drawing.Font("Consolas", 7.5)
 $lblStats.ForeColor = [System.Drawing.Color]::FromArgb(90, 90, 120)
-$lblStats.Location  = New-Object System.Drawing.Point(8, 400)
+$lblStats.Location  = New-Object System.Drawing.Point(8, 477)
 $lblStats.Size      = New-Object System.Drawing.Size(157, 58)
 $lblStats.Text      = "Tues      : 0`nCycles    : 0`nInterface : -"
 $pnlR.Controls.Add($lblStats)
@@ -573,7 +634,7 @@ $pnlR.Controls.Add($lblStats)
 $lblDB = New-Object System.Windows.Forms.Label
 $lblDB.Font      = New-Object System.Drawing.Font("Consolas", 7.5)
 $lblDB.ForeColor = [System.Drawing.Color]::FromArgb(65, 65, 95)
-$lblDB.Location  = New-Object System.Drawing.Point(8, 462)
+$lblDB.Location  = New-Object System.Drawing.Point(8, 539)
 $lblDB.Size      = New-Object System.Drawing.Size(157, 28)
 $lblDB.Text      = "DB : $dbCount entrees"
 $pnlR.Controls.Add($lblDB)
@@ -604,6 +665,9 @@ function Append-Log([string]$text, [System.Drawing.Color]$col = $defCol) {
     $rtb.SelectionColor  = $col
     $rtb.AppendText($text + "`n")
     $rtb.ScrollToCaret()
+    if ($script:sessionLogFile -and $text -ne "") {
+        try { Add-Content -Path $script:sessionLogFile -Value $text -Encoding UTF8 -EA SilentlyContinue } catch {}
+    }
 }
 
 function Refresh-Stats {
@@ -617,10 +681,59 @@ function Refresh-DB {
     }
 }
 
+function Save-SessionHistory {
+    if (-not $script:sessionData) { return }
+    $d        = $script:sessionData
+    $avgPing  = if ($d.pingCount -gt 0) { [math]::Round($d.pingTotal / $d.pingCount) } else { 0 }
+    $duration = if ($d.startTime) {
+        $span = (Get-Date) - [datetime]$d.startTime
+        "{0}m {1:D2}s" -f [int]$span.TotalMinutes, $span.Seconds
+    } else { "?" }
+    $entry = [PSCustomObject]@{
+        date     = (Get-Date -Format "yyyy-MM-dd HH:mm")
+        game     = $d.game
+        platform = $d.platform
+        duration = $duration
+        avgPing  = $avgPing
+        maxPing  = $d.maxPing
+        spikes   = $d.spikes
+        kills    = $g.Kills
+    }
+    $history = @()
+    if (Test-Path $historyFile) {
+        $raw = Get-Content $historyFile -Raw -EA SilentlyContinue | ConvertFrom-Json -EA SilentlyContinue
+        if ($raw) { $history = @($raw) }
+    }
+    $history += $entry
+    $history | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 $historyFile
+}
+
+function Show-SessionSummary {
+    if (-not $script:sessionData) { return }
+    $d       = $script:sessionData
+    $avgPing = if ($d.pingCount -gt 0) { [math]::Round($d.pingTotal / $d.pingCount) } else { 0 }
+    $dur     = if ($d.startTime) {
+        $span = (Get-Date) - [datetime]$d.startTime
+        "{0}m {1:D2}s" -f [int]$span.TotalMinutes, $span.Seconds
+    } else { "?" }
+    Save-SessionHistory
+    $colS = [System.Drawing.Color]::FromArgb(75, 205, 215)
+    $colV = [System.Drawing.Color]::FromArgb(195, 195, 215)
+    Append-Log "" $defCol
+    Append-Log "  +------ RESUME SESSION ------------------------+" $colS
+    Append-Log "  | Jeu      : $($d.game)" $colV
+    Append-Log "  | Duree    : $dur" $colV
+    Append-Log "  | Ping moy : ${avgPing}ms   Max : $($d.maxPing)ms" $colV
+    Append-Log "  | Spikes   : $($d.spikes)   Tues : $($g.Kills)" $colV
+    Append-Log "  +----------------------------------------------+" $colS
+    $script:sessionData = $null
+}
+
 # ================================================================
 #  GESTION MODE TUNNEL WIREGUARD (split / full)
 # ================================================================
 function Get-TunnelModeForGame($game) {
+    if ($script:forceFull) { return "full" }
     if (-not $game) { return "split" }
     if ($game.LaunchUri -eq "steam://rungameid/730" -or
         $game.Exe       -match '^cs2$' -or
@@ -648,6 +761,8 @@ function Set-TunnelMode([string]$Mode) {
         $modeLabel = if ($Mode -eq "full") { "TUNNEL COMPLET  (0.0.0.0/0)" } else { "SPLIT TUNNEL  (Valve IPs)" }
         $col = if ($Mode -eq "full") { [System.Drawing.Color]::FromArgb(190, 150, 45) } else { [System.Drawing.Color]::FromArgb(75, 200, 115) }
         Append-Log "  [WG] Mode : $modeLabel" $col
+        $lblTunnel.Text      = if ($Mode -eq "full") { "FULL" } else { "SPLIT" }
+        $lblTunnel.ForeColor = $col
     } catch {
         Append-Log "  [WG] Erreur changement mode : $($_.Exception.Message)" ([System.Drawing.Color]::FromArgb(215, 80, 80))
     }
@@ -663,7 +778,26 @@ function Test-PreLaunch {
     $wgUp = Get-NetAdapter -EA SilentlyContinue |
             Where-Object { $_.InterfaceDescription -like "*WireGuard*" -and $_.Status -eq "Up" }
     if (-not $wgUp) {
-        $warns.Add("Tunnel WireGuard inactif — le trafic CS2 ne passera PAS par le VPS.")
+        # Tentative de demarrage automatique
+        $svc = Get-Service $wgSvcName -EA SilentlyContinue
+        if ($svc -and $svc.Status -ne 'Running') {
+            Append-Log "  [WG] Tunnel inactif — demarrage automatique..." ([System.Drawing.Color]::FromArgb(190, 150, 45))
+            try {
+                Start-Service $wgSvcName -EA Stop
+                Start-Sleep -Milliseconds 1800
+                $wgUp = Get-NetAdapter -EA SilentlyContinue |
+                        Where-Object { $_.InterfaceDescription -like "*WireGuard*" -and $_.Status -eq "Up" }
+                if ($wgUp) {
+                    Append-Log "  [WG] Tunnel demarre avec succes." ([System.Drawing.Color]::FromArgb(75, 200, 115))
+                } else {
+                    $warns.Add("Tunnel WireGuard inactif — le trafic ne passera PAS par le VPS.")
+                }
+            } catch {
+                $warns.Add("Tunnel WireGuard inactif et echec demarrage auto : $($_.Exception.Message)")
+            }
+        } else {
+            $warns.Add("Tunnel WireGuard inactif — le trafic CS2 ne passera PAS par le VPS.")
+        }
     } else {
         $vpsOk = Test-Connection -ComputerName "10.66.66.1" -Count 1 -Quiet -EA SilentlyContinue
         if (-not $vpsOk) {
@@ -692,6 +826,21 @@ function Test-PreLaunch {
 # ================================================================
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 200
+$script:_tickCount      = 0
+$script:_lastSpikeToast = [datetime]::MinValue
+
+function Send-SpikeToast([string]$gameName) {
+    if (([datetime]::Now - $script:_lastSpikeToast).TotalSeconds -lt 30) { return }
+    $script:_lastSpikeToast = [datetime]::Now
+    try {
+        $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+        $null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime]
+        $xml  = New-Object Windows.Data.Xml.Dom.XmlDocument
+        $xml.LoadXml("<toast><visual><binding template='ToastText02'><text id='1'>SPIKE — $gameName</text><text id='2'>VPS &gt; 150ms — verifiez la connexion 4G</text></binding></visual></toast>")
+        [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("CS2 Optimizer").Show(
+            [Windows.UI.Notifications.ToastNotification]::new($xml))
+    } catch {}
+}
 
 $timer.add_Tick({
     if (-not $g.Queue) { return }
@@ -707,6 +856,17 @@ $timer.add_Tick({
         if ($t -match '\[TREE-KILL\]|\[KILL-DYN\]|\[KILL\]|\[NEW-DYN\]') { $g.Kills++ }
         if ($t -match 'cycle #(\d+)')           { $g.Cycles = [int]$Matches[1] }
         if ($t -match 'Interface\s+:\s+(\S+)')  { $g.Iface  = $Matches[1] }
+        # Ping stats pour resume
+        if ($t -match '\[PING\].*avg=(\d+)ms.*max=(\d+)ms' -and $script:sessionData) {
+            $script:sessionData.pingTotal += [int]$Matches[1]
+            $script:sessionData.pingCount++
+            if ([int]$Matches[2] -gt $script:sessionData.maxPing) { $script:sessionData.maxPing = [int]$Matches[2] }
+        }
+        if ($t -match '\*\* SPIKE') {
+            if ($script:sessionData) { $script:sessionData.spikes++ }
+            $spGn_ = if ($cmbGame.SelectedItem -and $gameMap.ContainsKey($cmbGame.SelectedItem)) { $gameMap[$cmbGame.SelectedItem].Name } else { "Jeu" }
+            Send-SpikeToast $spGn_
+        }
 
         # Statut selon evenements cles
         if ($t -match 'PID \d+ -> Priorite High') {
@@ -725,7 +885,16 @@ $timer.add_Tick({
 
     Refresh-Stats
 
-    # Runspace termine
+    # Indicateurs tethering + WireGuard (toutes les 5s = 25 ticks)
+    $script:_tickCount++
+    if ($script:_tickCount % 25 -eq 0) {
+        $iOk = Get-NetAdapter -EA SilentlyContinue | Where-Object { $_.InterfaceDescription -like '*Apple Mobile Device*' -and $_.Status -eq 'Up' }
+        $wOk = Get-NetAdapter -EA SilentlyContinue | Where-Object { $_.InterfaceDescription -like '*WireGuard*' -and $_.Status -eq 'Up' }
+        $lblTether.Text      = if ($iOk) { 'USB ●' } else { 'USB ○' }
+        $lblTether.ForeColor = if ($iOk) { [System.Drawing.Color]::FromArgb(75, 200, 115) } else { [System.Drawing.Color]::FromArgb(215, 80, 80) }
+        $lblWGStatus.Text      = if ($wOk) { 'WG ●' } else { 'WG ○' }
+        $lblWGStatus.ForeColor = if ($wOk) { [System.Drawing.Color]::FromArgb(75, 200, 115) } else { [System.Drawing.Color]::FromArgb(215, 80, 80) }
+    }
     if ($g.Async -and $g.Async.IsCompleted) {
         # Drainer les derniers items restants
         while ($g.Queue.TryDequeue([ref]$item)) {
@@ -741,6 +910,7 @@ $timer.add_Tick({
         $btnRelaunch.Enabled = $false
         $lblStatus.Text      = "  Session terminee"
         $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(100, 100, 125)
+        Show-SessionSummary
         Append-Log "" $defCol
         Append-Log "-----------------------------------------------------" ([System.Drawing.Color]::FromArgb(50, 50, 75))
         Append-Log "  Session terminee. Tues : $($g.Kills)  |  Cycles : $($g.Cycles)" ([System.Drawing.Color]::FromArgb(90, 90, 115))
@@ -764,6 +934,12 @@ $btnStart.add_Click({
     $rtb.Clear()
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"
     Refresh-Stats
+
+    # Init session
+    $selKeyInit  = $cmbGame.SelectedItem
+    $selGameInit = if ($selKeyInit -and $gameMap.ContainsKey($selKeyInit)) { $gameMap[$selKeyInit] } else { $null }
+    $script:sessionLogFile = Join-Path $logDir ("session-" + (Get-Date -Format "yyyy-MM-dd_HH-mm-ss") + ".txt")
+    $script:sessionData    = @{ startTime = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); game = if ($selGameInit) { $selGameInit.Name } else { "Inconnu" }; platform = if ($selGameInit) { $selGameInit.Platform } else { "-" }; spikes = 0; pingTotal = 0; pingCount = 0; maxPing = 0 }
 
     # Basculer le mode tunnel selon le jeu selectionne
     $selKeyEarly  = $cmbGame.SelectedItem
@@ -822,6 +998,12 @@ $btnRelaunch.add_Click({
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"
     Refresh-Stats
 
+    # Init session (nouvelle session au relancement)
+    $selKeyInitR  = $cmbGame.SelectedItem
+    $selGameInitR = if ($selKeyInitR -and $gameMap.ContainsKey($selKeyInitR)) { $gameMap[$selKeyInitR] } else { $null }
+    $script:sessionLogFile = Join-Path $logDir ("session-" + (Get-Date -Format "yyyy-MM-dd_HH-mm-ss") + ".txt")
+    $script:sessionData    = @{ startTime = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); game = if ($selGameInitR) { $selGameInitR.Name } else { "Inconnu" }; platform = if ($selGameInitR) { $selGameInitR.Platform } else { "-" }; spikes = 0; pingTotal = 0; pingCount = 0; maxPing = 0 }
+
     # Basculer le mode tunnel selon le jeu selectionne
     $selKeyEarlyR  = $cmbGame.SelectedItem
     $selGameEarlyR = if ($selKeyEarlyR -and $gameMap.ContainsKey($selKeyEarlyR)) { $gameMap[$selKeyEarlyR] } else { $null }
@@ -868,6 +1050,7 @@ $btnStop.add_Click({
         $lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(195, 75, 75)
         Append-Log "" $defCol
         Append-Log "  Session arretee." ([System.Drawing.Color]::FromArgb(195, 75, 75))
+        Show-SessionSummary
         Set-TunnelMode "split"
         if (Test-Path $restorePs) {
             Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$restorePs`"" -Verb RunAs -WindowStyle Hidden
@@ -926,6 +1109,34 @@ $btnClearDB.add_Click({
 #  BOUTON : Effacer logs
 # ================================================================
 $btnClearLog.add_Click({ $rtb.Clear() })
+
+# ================================================================
+#  BOUTON : Rafraichir jeux
+# ================================================================
+$btnRefresh.add_Click({
+    $btnRefresh.Enabled = $false
+    $cmbGame.Items.Clear()
+    $gameMap.Clear()
+    try {
+        foreach ($g_ in (Get-InstalledGames | Sort-Object Name)) {
+            $key = "$($g_.Name)  [$($g_.Platform)]"
+            $gameMap[$key] = $g_
+            $cmbGame.Items.Add($key) | Out-Null
+        }
+    } catch {}
+    if ($cmbGame.Items.Count -gt 0) { $cmbGame.SelectedIndex = 0; Update-GameSelection }
+    Append-Log "  Liste de jeux actualisee ($($cmbGame.Items.Count) jeux detectes)." ([System.Drawing.Color]::FromArgb(75, 205, 215))
+    $btnRefresh.Enabled = $true
+})
+
+# ================================================================
+#  CHECKBOX : Forcer Full Tunnel
+# ================================================================
+$chkForceFull.add_CheckedChanged({
+    $script:forceFull = $chkForceFull.Checked
+    $selG_ = if ($cmbGame.SelectedItem -and $gameMap.ContainsKey($cmbGame.SelectedItem)) { $gameMap[$cmbGame.SelectedItem] } else { $null }
+    Set-TunnelMode (Get-TunnelModeForGame $selG_)
+})
 
 # ================================================================
 #  BOUTON : Speedtest

@@ -162,6 +162,23 @@ if ($ss) {
     Write-Host "  [START+ENABLE] SteelSeries GG Update Service"
 }
 
+# DoSvc (Delivery Optimization) : remettre en Automatic
+$dSvc_ = Get-Service -Name DoSvc -ErrorAction SilentlyContinue
+if ($dSvc_) {
+    Set-Service -Name DoSvc -StartupType Automatic -ErrorAction SilentlyContinue
+    Start-Service -Name DoSvc -ErrorAction SilentlyContinue
+    Write-Host "  [START+ENABLE] Delivery Optimization (DoSvc)"
+}
+# WerSvc / UsoSvc
+foreach ($s2_ in @("WerSvc","UsoSvc")) {
+    $sv2_ = Get-Service -Name $s2_ -ErrorAction SilentlyContinue
+    if ($sv2_) {
+        Set-Service -Name $s2_ -StartupType Automatic -ErrorAction SilentlyContinue
+        Start-Service -Name $s2_ -ErrorAction SilentlyContinue
+        Write-Host "  [START+ENABLE] $s2_"
+    }
+}
+
 # AutoTuning remis a normal (CS2-HighPriority l'avait mis en restricted)
 netsh int tcp set global autotuninglevel=normal | Out-Null
 Write-Host "  AutoTuning remis a normal"
@@ -206,6 +223,21 @@ if (Test-Path $wifiBackupFile) {
         $restoreCaps = if ($null -ne $wb.NicPnPCaps) { [uint32]$wb.NicPnPCaps } else { [uint32]0 }
         Set-ItemProperty -Path $wb.NicRegPath -Name PnPCapabilities -Value $restoreCaps -Type DWord -ErrorAction SilentlyContinue
         Write-Host "  NIC PnPCapabilities restaure : $restoreCaps"
+    }
+    # NIC Interrupt Moderation
+    if ($wb.NicIModName -and $wb.NicIModOrigVal) {
+        Set-NetAdapterAdvancedProperty -Name $restoreIfName -DisplayName $wb.NicIModName -DisplayValue $wb.NicIModOrigVal -EA SilentlyContinue
+        Write-Host "  NIC IMod restaure : $($wb.NicIModName) = $($wb.NicIModOrigVal)"
+    }
+    # NIC Flow Control
+    if ($wb.NicFCName -and $wb.NicFCOrigVal) {
+        Set-NetAdapterAdvancedProperty -Name $restoreIfName -DisplayName $wb.NicFCName -DisplayValue $wb.NicFCOrigVal -EA SilentlyContinue
+        Write-Host "  NIC FC restaure : $($wb.NicFCName) = $($wb.NicFCOrigVal)"
+    }
+    # InitialRTO
+    if ($wb.InitialRTO) {
+        netsh int tcp set global initialRto=$($wb.InitialRTO) | Out-Null
+        Write-Host "  InitialRTO restaure : $($wb.InitialRTO)ms"
     }
 
     Remove-Item -Path $wifiBackupFile -ErrorAction SilentlyContinue

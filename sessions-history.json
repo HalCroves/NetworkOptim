@@ -1,0 +1,22 @@
+﻿[
+    {
+        "date":  "2026-05-18 19:21",
+        "game":  "Counter-Strike 2",
+        "platform":  "Steam",
+        "duration":  "33m 00s",
+        "avgPing":  63,
+        "maxPing":  225,
+        "spikes":  1,
+        "kills":  41
+    },
+    {
+        "date":  "2026-05-18 20:01",
+        "game":  "Counter-Strike 2",
+        "platform":  "Steam",
+        "duration":  "32m 51s",
+        "avgPing":  51,
+        "maxPing":  311,
+        "spikes":  1,
+        "kills":  21
+    }
+]

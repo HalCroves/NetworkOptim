@@ -15,7 +15,7 @@ Comprend un tunnel WireGuard vers un VPS Ionos (Paris) pour stabiliser le routag
 - [Fichiers du projet](#fichiers-du-projet)
 - [Prérequis](#prérequis)
 - [Installation WireGuard (VPS + Windows)](#installation-wireguard-vps--windows)
-- [Anti-bufferbloat VPS (fq_codel + BBR)](#anti-bufferbloat-vps-fq_codel--bbr)
+- [Anti-bufferbloat VPS (BBR + fq + DSCP EF)](#anti-bufferbloat-vps-bbr--fq--dscp-ef)
 - [Configuration CS2 (autoexec.cfg)](#configuration-cs2-autoexeccfg)
 - [Tethering iPhone USB](#tethering-iphone-usb)
 - [Utilisation](#utilisation)
@@ -38,9 +38,9 @@ Exécuté automatiquement au lancement du jeu via `CS2-Launcher.ps1`.
 | **[1/8] Kill statique** | Supprime les processus connus consommateurs réseau (OneDrive, Xbox, Teams, iCloud, SteelSeries GG…) |
 | **[2/8] Kill dynamique** | Détecte les processus avec ≥ 3 connexions TCP actives et les tue, les ajoute à `process-blacklist.json` |
 | **[3/8] Services** | Arrête/désactive BITS, Windows Update, WSearch, DiagTrack, Delivery Optimization, Xbox services, Apple Bonjour… |
-| **[4/8] TCP stack** | `AutoTuningLevel=Normal`, Nagle désactivé (`TcpAckFrequency=1`, `TCPNoDelay=1`), ECN activé, Timestamps désactivés |
+| **[4/8] TCP stack** | `AutoTuningLevel=Normal`, Nagle désactivé (`TcpAckFrequency=1`, `TCPNoDelay=1`), ECN activé, Timestamps désactivés, `InitialRTO=2000ms` (retransmission TCP plus rapide) |
 | **[5/8] Registre système** | `SystemResponsiveness=0` (MMCSS, CPU max pour le jeu), `NetworkThrottlingIndex=0xFFFFFFFF` (pas de throttle réseau) |
-| **[5/8] NIC** | Interrupt Moderation désactivé, Flow Control désactivé, Power Management désactivé sur la carte réseau active |
+| **[5/8] NIC** | Interrupt Moderation désactivé, Flow Control désactivé, Power Management désactivé · valeurs originales sauvegardées dans `wifi-gaming-backup.json` pour restauration automatique |
 | **[5/8] Exclusions Defender** | Dossier Steam + `steam.exe`, `steamwebhelper.exe`, `cs2.exe` exclus du scan temps réel |
 | **[6/8] MTU auto** | Dichotomie binaire pour trouver le MTU optimal (1200–1452), appliqué à l'interface physique |
 | **[7/8] QoS DSCP 46** | Expedited Forwarding sur `cs2.exe` + `wireguard.exe`, background throttlé à 1 Mbps (libère l'uplink 4G) |
@@ -48,7 +48,7 @@ Exécuté automatiquement au lancement du jeu via `CS2-Launcher.ps1`.
 
 **Surveillance continue** : tant que CS2 est ouvert, le script re-kill les processus qui reviennent (toutes les 20s), mesure la latence (ping 1.1.1.1 + VPS WireGuard), et loggue les spikes > 150ms **sur le VPS uniquement** dans `latency-spikes.log`. Un spike sur 1.1.1.1 sans spike VPS = la 4G est instable mais CS2 n'est pas impacté (le tunnel absorbe).
 
-**Restauration automatique** : à la fermeture de CS2, tous les paramètres modifiés (DNS, AutoTuning, NIC, QoS, services) sont restaurés depuis `wifi-gaming-backup.json`.
+**Restauration automatique** : à la fermeture de CS2, tous les paramètres modifiés (DNS, AutoTuning, NIC IMod/FC/InitialRTO, QoS, services BITS/WU/SysMain/DoSvc…) sont restaurés depuis `wifi-gaming-backup.json`.
 
 ### Tier 2 — Tunnel WireGuard (split tunnel)
 
@@ -82,37 +82,51 @@ Le tronçon instable (4G → VPS) est court. La partie VPS → Valve est datacen
 
 Le service WireGuard (`WireGuardTunnel$CS2-WG`) démarre **automatiquement** au boot Windows.
 
-### Tier 3 — Anti-bufferbloat VPS (fq_codel + BBR)
+### Tier 3 — Anti-bufferbloat VPS (BBR + fq + DSCP EF)
 
-Même avec le tunnel actif, les pics de latence en jeu (typiquement +30–40 ms pendant les rounds) sont causés par du **bufferbloat** : les bursts UDP de CS2 saturent la file d'attente du lien 4G et des interfaces du VPS, créant un retard de queuing.
+Même avec le tunnel actif, les pics de latence en jeu sont causés par du **bufferbloat** : les bursts UDP de CS2 saturent les files d'attente du lien 4G et des interfaces du VPS, créant un retard de queuing.
 
-**fq_codel** *(Fair Queuing Controlled Delay)* — algorithme de gestion de file d'attente réseau. Plutôt que d'accumuler les paquets dans un buffer (ce qui crée du délai), il les distribue équitablement et abandonne proactivement les paquets en retard. Résultat : la latence reste stable même quand la connexion est chargée.
+**BBR** *(Bottleneck Bandwidth and Round-trip propagation time)* — algorithme de contrôle de congestion TCP développé par Google. Contrairement à Cubic (qui détecte la congestion *après* avoir perdu des paquets), BBR modélise la bande passante disponible en temps réel et adapte son débit en continu. Beaucoup plus efficace sur 4G variable.
 
-**BBR** *(Bottleneck Bandwidth and Round-trip propagation time)* — algorithme de contrôle de congestion TCP développé par Google. Contrairement à l'algorithme classique (Cubic) qui détecte la congestion *après* avoir perdu des paquets, BBR modélise la bande passante disponible en temps réel et adapte son débit en continu. Beaucoup plus efficace sur une connexion variable comme la 4G.
+**fq** *(Fair Queuing)* — qdisc optimisé pour BBR. Distribue équitablement la bande passante entre les flux, élimine le queuing-delay sur les interfaces du VPS (ens6, wg0).
+
+**DSCP EF** *(Expedited Forwarding)* — les paquets WireGuard (UDP + ports Valve TCP) sont marqués DSCP 46 sur les liens sortants du VPS. Les équipements réseau qui respectent DSCP leur donnent la priorité sur le trafic best-effort.
 
 ```
-Sans fq_codel+BBR :  burst CS2 → buffer plein → délai queuing → spike de latence
-Avec fq_codel+BBR  :  burst CS2 → file gérée équitablement → latence stable
+Sans tuning :  burst CS2 → buffer plein → queuing-delay → spike
+Avec BBR+fq  :  burst CS2 → file équitable → latence stable
 ```
 
-| Composant | Configuration | Effet |
-|-----------|--------------|-------|
-| **fq_codel sur `ens6`** | `tc qdisc replace dev ens6 root fq_codel` | Élimine l'accumulation de paquets sur l'interface physique du VPS |
-| **fq_codel sur `wg0`** | `tc qdisc replace dev wg0 root fq_codel` | Idem côté tunnel WireGuard (trafic CS2 décapsulé) |
-| **BBR congestion control** | `net.ipv4.tcp_congestion_control=bbr` | Algorithme Google adaptatif, bien plus efficace que Cubic sur 4G variable |
-| **Default qdisc** | `net.core.default_qdisc=fq_codel` | Toute nouvelle interface hérite de fq_codel automatiquement |
-| **Service `tc-fq-codel`** | systemd unit enabled | fq_codel réappliqué automatiquement après chaque reboot |
-| **Buffers UDP** | `rmem_max/wmem_max = 26214400` | WireGuard est UDP pur — buffers par défaut Debian trop petits sous charge |
+| Composant | Valeur | Effet |
+|-----------|--------|-------|
+| **BBR** | `tcp_congestion_control = bbr` | Débit adaptatif temps réel, sans attendre les pertes |
+| **fq qdisc** | `default_qdisc = fq` | Queuing-delay éliminé sur ens6, wg0 et toutes les interfaces |
+| **Buffers UDP** | `rmem_max = wmem_max = 67 MB` | Évite les drops WireGuard sous charge |
+| **tcp_fastopen** | `3` | Connexions TCP en 1 RTT au lieu de 3 |
+| **tcp_slow_start_after_idle** | `0` | Pas de réduction de débit entre les rounds |
+| **DSCP EF (0x2e = 46)** | iptables mangle wg0 | UDP + ports Valve TCP priorité max sur le réseau |
+| **Persistance** | `iptables-persistent` + `sysctl.conf` | Survit aux redémarrages du VPS |
 
-Installation → voir [Anti-bufferbloat VPS (fq_codel + BBR)](#anti-bufferbloat-vps-fq_codel--bbr).
+Installation → voir [Anti-bufferbloat VPS (BBR + fq + DSCP EF)](#anti-bufferbloat-vps-bbr--fq--dscp-ef).
 
 ### Tier 4 — Vérifications pré-lancement (CS2-Launcher.ps1)
 
 Avant chaque lancement, le launcher vérifie automatiquement :
-- **Tunnel WireGuard actif** : adapateur détecté + ping 10.66.66.1 réussi
+- **Tunnel WireGuard actif** : adaptateur détecté + ping 10.66.66.1 réussi
 - **Tethering iPhone USB actif** : adaptateur "Apple Mobile Device Ethernet" détecté et `Up`
 
 Si l'une des deux conditions échoue → popup d'avertissement avec option de continuer quand même.
+
+**Indicateurs en temps réel** dans le header du launcher (rafraîchis toutes les 5 s) :
+
+| Indicateur | État |
+|---|---|
+| `USB ●` vert | Tethering iPhone USB actif (`Apple Mobile Device Ethernet` Up) |
+| `USB ○` rouge | Pas de tethering USB détecté |
+| `WG ●` vert | Interface WireGuard détectée et Up |
+| `WG ○` rouge | WireGuard absent ou Down |
+| `SPLIT` vert | Mode split tunnel actif (IPs Valve seulement) |
+| `FULL` orange | Mode full tunnel actif (`0.0.0.0/0`) |
 
 ### Tier 5 — Routage automatique par jeu (split / full tunnel)
 
@@ -125,8 +139,9 @@ Le launcher détecte automatiquement le jeu sélectionné et configure le mode t
 
 - **Lancer / Relancer** → bascule vers le bon mode avant de démarrer (~2 s le temps du redémarrage du service)
 - **Arrêter** → restaure automatiquement le split tunnel (IPs Valve)
+- **Sélection de jeu** → l'indicateur `SPLIT`/`FULL` dans le header se met à jour immédiatement (aperçu du mode qui sera appliqué au lancement)
 
-Le mode appliqué est affiché dans le log du launcher : `[WG] Mode : TUNNEL COMPLET (0.0.0.0/0)` ou `[WG] Mode : SPLIT TUNNEL (Valve IPs)`.
+Le mode appliqué est affiché dans le log du launcher : `[WG] Mode : TUNNEL COMPLET (0.0.0.0/0)` ou `[WG] Mode : SPLIT TUNNEL (Valve IPs)`. La sélection de jeu est sauvegardée dans `prefs.json` et rechargée automatiquement au prochain démarrage.
 
 ---
 
@@ -145,9 +160,11 @@ NetworkOptim/
 ├── Monitor-CS2Ping.ps1        # Monitoring latence CS2 en temps réel
 ├── Fix-iPhoneUSB.ps1          # Fix drivers RNDIS iPhone (tethering USB)
 ├── Clean-GhostDevices.ps1     # Nettoyage des adaptateurs réseau fantômes
+├── wg-vps-tuning.sh           # Tuning VPS : BBR, sysctl, DSCP EF (à exécuter une fois en root)
 ├── process-blacklist.json     # DB persistante des processus à tuer (auto-générée)
 ├── wifi-gaming-backup.json    # Backup des paramètres avant optimisation (auto-généré)
-└── latency-spikes.log         # Log des spikes réseau > 150ms (auto-généré)
+├── latency-spikes.log         # Log des spikes réseau > 150ms (auto-généré)
+└── prefs.json                 # Sélection de jeu persistante (auto-généré)
 ```
 
 ---
@@ -250,69 +267,40 @@ ping 10.66.66.1
 
 ---
 
-## Anti-bufferbloat VPS (fq_codel + BBR)
+## Anti-bufferbloat VPS (BBR + fq + DSCP EF)
 
-À appliquer **une fois** sur le VPS après l'installation WireGuard.
-
-```bash
-# 1. Appliquer fq_codel immédiatement
-tc qdisc replace dev ens6 root fq_codel
-tc qdisc replace dev wg0  root fq_codel
-
-# Vérifier (doit afficher "fq_codel" pour chaque interface)
-tc qdisc show dev ens6
-tc qdisc show dev wg0
-
-# 2. Activer BBR et définir fq_codel comme qdisc par défaut
-echo "net.core.default_qdisc = fq_codel" >> /etc/sysctl.conf
-echo "net.ipv4.tcp_congestion_control = bbr"  >> /etc/sysctl.conf
-sysctl -p
-sysctl net.ipv4.tcp_congestion_control   # doit répondre "bbr"
-
-# 3. Persister fq_codel au démarrage via un service systemd
-cat > /etc/systemd/system/tc-fq-codel.service << 'EOF'
-[Unit]
-Description=fq_codel qdisc on ens6 + wg0
-After=network-online.target wg-quick@wg0.service
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/sbin/tc qdisc replace dev ens6 root fq_codel
-ExecStart=/sbin/tc qdisc replace dev wg0  root fq_codel
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable --now tc-fq-codel.service
-systemctl status tc-fq-codel.service --no-pager
-```
-
-### Buffers UDP pour WireGuard (une fois)
+À appliquer **une fois** sur le VPS après l'installation WireGuard, via le script `wg-vps-tuning.sh` inclus.
 
 ```bash
-cat << 'EOF' | sudo tee /etc/sysctl.d/99-wireguard-udp.conf
-net.core.rmem_default = 26214400
-net.core.wmem_default = 26214400
-net.core.rmem_max     = 26214400
-net.core.wmem_max     = 26214400
-net.core.netdev_max_backlog = 5000
-net.core.optmem_max   = 65536
-EOF
-sudo sysctl --system
-# Vérifier :
-sysctl net.core.rmem_max   # doit afficher 26214400
+# Depuis PowerShell Windows
+scp "C:\Users\HalCroves\NetworkOptim\wg-vps-tuning.sh" root@<IP_VPS>:~
+ssh root@<IP_VPS> "bash ~/wg-vps-tuning.sh"
+
+# Rendre les règles iptables persistantes au reboot
+ssh root@<IP_VPS> "apt install -y iptables-persistent"
+
+# Redémarrer pour valider sysctl
+ssh root@<IP_VPS> "reboot"
 ```
 
-Sortie attendue du status :
+Le script applique en une passe :
+- **[1/3] BBR** : `net.core.default_qdisc = fq` + `net.ipv4.tcp_congestion_control = bbr` → persisté dans `/etc/sysctl.conf`
+- **[2/3] sysctl** : buffers UDP 64 MB, `tcp_fastopen=3`, `tcp_slow_start_after_idle=0`, `ip_forward=1`
+- **[3/3] DSCP EF** : iptables mangle FORWARD wg0 UDP + ports Valve TCP 27015-27036 marqués 0x2e → persisté via `iptables-persistent`
+
+### Vérification après reboot
+
+```bash
+ssh root@<IP_VPS> "sysctl net.ipv4.tcp_congestion_control; iptables -t mangle -L FORWARD -n | grep DSCP"
 ```
-● tc-fq-codel.service - fq_codel qdisc on ens6 + wg0
-     Active: active (exited) since ...
-    Process: ExecStart=/sbin/tc qdisc replace dev ens6 root fq_codel (code=exited, status=0/SUCCESS)
-    Process: ExecStart=/sbin/tc qdisc replace dev wg0  root fq_codel (code=exited, status=0/SUCCESS)
+
+Sortie attendue :
+```
+net.ipv4.tcp_congestion_control = bbr
+DSCP       17   --  0.0.0.0/0   0.0.0.0/0   DSCP set 0x2e
+DSCP       17   --  0.0.0.0/0   0.0.0.0/0   DSCP set 0x2e
+DSCP        6   --  0.0.0.0/0   0.0.0.0/0   tcp dpts:27015:27036 DSCP set 0x2e
+DSCP        6   --  0.0.0.0/0   0.0.0.0/0   tcp spts:27015:27036 DSCP set 0x2e
 ```
 
 ---
@@ -502,6 +490,16 @@ Autre jeu sélectionné :  PC → 4G → VPS → [tout Internet]
 | **Si VPS tombe** | Seul le jeu impacté | Plus d'internet du tout |
 
 Le split tunnel permanent en dehors des sessions de jeu évite ces effets de bord.
+
+### Forcer le full tunnel (checkbox)
+
+La checkbox **"Forcer Full Tunnel"** dans la barre latérale du launcher bascule immédiatement en full tunnel (`0.0.0.0/0`) indépendamment du jeu sélectionné. La modification est appliquée en live via `wg set` sans redémarrer le service ni interrompre une partie en cours.
+
+Cas d'usage : tester le routage VPS sur un jeu normalement en split tunnel, ou forcer le full tunnel pour un jeu non détecté automatiquement.
+
+### Notification toast sur spike
+
+Quand le monitoring détecte un spike VPS > 150 ms, une **notification toast Windows** apparaît. Cooldown de 30 s pour éviter le spam. Un spike sur 1.1.1.1 *sans* spike VPS = la 4G est instable mais CS2 n'est pas impacté (le tunnel absorbe).
 
 ### Changer le mode manuellement
 

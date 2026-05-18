@@ -380,19 +380,31 @@ if ($backupData["NicRegPath"]) {
     Write-Host "  NIC Sleep   -> desactive (micro-coupures evitees)" -ForegroundColor Green
 }
 # NIC : Interrupt Moderation + Flow Control -> Disabled (latence par paquet reduite)
+$backupData["NicIModName"] = $null; $backupData["NicIModOrigVal"] = $null
 foreach ($nicProp_ in @('Interrupt Moderation', 'Adaptive Interrupt Moderation', 'Interrupt Moderation Rate')) {
-    if (Get-NetAdapterAdvancedProperty -Name $ifName -DisplayName $nicProp_ -EA SilentlyContinue) {
+    $nicPropVal_ = Get-NetAdapterAdvancedProperty -Name $ifName -DisplayName $nicProp_ -EA SilentlyContinue
+    if ($nicPropVal_) {
+        $backupData["NicIModName"]    = $nicProp_
+        $backupData["NicIModOrigVal"] = $nicPropVal_.DisplayValue
         Set-NetAdapterAdvancedProperty -Name $ifName -DisplayName $nicProp_ -DisplayValue 'Disabled' -EA SilentlyContinue
         Write-Host "  NIC IMod    -> Disabled ($nicProp_)" -ForegroundColor Green; break
     }
 }
+$backupData["NicFCName"] = $null; $backupData["NicFCOrigVal"] = $null
 foreach ($nicProp_ in @('Flow Control', 'IEEE 802.3x Flow Control')) {
-    if (Get-NetAdapterAdvancedProperty -Name $ifName -DisplayName $nicProp_ -EA SilentlyContinue) {
+    $nicPropVal_ = Get-NetAdapterAdvancedProperty -Name $ifName -DisplayName $nicProp_ -EA SilentlyContinue
+    if ($nicPropVal_) {
+        $backupData["NicFCName"]    = $nicProp_
+        $backupData["NicFCOrigVal"] = $nicPropVal_.DisplayValue
         Set-NetAdapterAdvancedProperty -Name $ifName -DisplayName $nicProp_ -DisplayValue 'Disabled' -EA SilentlyContinue
         Write-Host "  NIC FC      -> Disabled ($nicProp_)" -ForegroundColor Green
     }
 }
+$origRTO_              = ((netsh int tcp show global) | Select-String 'Initial RTO|RTO' | Select-Object -First 1) -replace '.*:\s*',''
+$backupData["InitialRTO"] = if ($origRTO_) { $origRTO_.ToString().Trim() } else { "3000" }
 netsh int tcp set global initialRto=2000       | Out-Null ; Write-Host "  InitialRTO  -> 2000ms (retransmit plus rapide)" -ForegroundColor Green
+# Re-save backup avec NIC + RTO
+$backupData | ConvertTo-Json | Set-Content -Encoding UTF8 "$PSScriptRoot\wifi-gaming-backup.json"
 netsh int ip delete destinationcache           | Out-Null
 netsh int ip delete arpcache                   | Out-Null
 Write-Host "  Cache IP    -> flushe (ARP + destination cache)" -ForegroundColor Green

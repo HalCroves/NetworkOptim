@@ -1,17 +1,22 @@
 ﻿{
+    "NicIModName":  null,
+    "NicFCName":  null,
+    "NicFCOrigVal":  null,
     "NicRegPath":  "Microsoft.PowerShell.Core\\Registry::HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}\\0013",
     "DNS":  [
                 "1.0.0.1",
                 "1.1.1.1"
             ],
-    "InterfaceIndex":  17,
+    "InterfaceIndex":  18,
     "NicPnPCaps":  24,
     "NagleNoDelay":  1,
+    "NicIModOrigVal":  null,
     "QoSKeyExisted":  true,
     "ECN":  "disabled",
     "AutoTuning":  [
 
                    ],
+    "InitialRTO":  "2000",
     "QoSLimit":  0,
     "Interface":  "iPhone USB",
     "Timestamps":  "disabled",
