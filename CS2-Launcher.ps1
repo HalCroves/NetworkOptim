@@ -45,6 +45,8 @@ if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Forc
 $script:sessionLogFile = $null
 $script:sessionData    = $null
 $script:forceFull      = $false
+$script:_plOk          = 0     # pings VPS reussis (packet loss tracker)
+$script:_plTotal       = 0     # pings VPS total
 
 # ── Lecture DB initiale ───────────────────────────────────────────────
 $dbCount = 0; $dbDate = ""
@@ -400,7 +402,7 @@ function Get-InstalledGames {
 # ================================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text            = "CS2 Optimizer"
-$form.ClientSize      = New-Object System.Drawing.Size(700, 670)
+$form.ClientSize      = New-Object System.Drawing.Size(700, 688)
 $form.BackColor       = [System.Drawing.Color]::FromArgb(16, 16, 26)
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
@@ -508,7 +510,7 @@ $form.Controls.Add($rtb)
 # ── Panel droit ───────────────────────────────────────────────────────
 $pnlR = New-Object System.Windows.Forms.Panel
 $pnlR.Location  = New-Object System.Drawing.Point(519, 92)
-$pnlR.Size      = New-Object System.Drawing.Size(173, 572)
+$pnlR.Size      = New-Object System.Drawing.Size(173, 590)
 $pnlR.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 32)
 $form.Controls.Add($pnlR)
 
@@ -626,15 +628,15 @@ $lblStats = New-Object System.Windows.Forms.Label
 $lblStats.Font      = New-Object System.Drawing.Font("Consolas", 7.5)
 $lblStats.ForeColor = [System.Drawing.Color]::FromArgb(90, 90, 120)
 $lblStats.Location  = New-Object System.Drawing.Point(8, 477)
-$lblStats.Size      = New-Object System.Drawing.Size(157, 58)
-$lblStats.Text      = "Tues      : 0`nCycles    : 0`nInterface : -"
+$lblStats.Size      = New-Object System.Drawing.Size(157, 76)
+$lblStats.Text      = "Tues      : 0`nCycles    : 0`nInterface : -`nLoss VPS  : -"
 $pnlR.Controls.Add($lblStats)
 
 # ── DB info ───────────────────────────────────────────────────────────
 $lblDB = New-Object System.Windows.Forms.Label
 $lblDB.Font      = New-Object System.Drawing.Font("Consolas", 7.5)
 $lblDB.ForeColor = [System.Drawing.Color]::FromArgb(65, 65, 95)
-$lblDB.Location  = New-Object System.Drawing.Point(8, 539)
+$lblDB.Location  = New-Object System.Drawing.Point(8, 557)
 $lblDB.Size      = New-Object System.Drawing.Size(157, 28)
 $lblDB.Text      = "DB : $dbCount entrees"
 $pnlR.Controls.Add($lblDB)
@@ -671,7 +673,8 @@ function Append-Log([string]$text, [System.Drawing.Color]$col = $defCol) {
 }
 
 function Refresh-Stats {
-    $lblStats.Text = "Tues      : $($g.Kills)`nCycles    : $($g.Cycles)`nInterface : $($g.Iface)"
+    $lossStr_ = if ($script:_plTotal -gt 0) { "$([math]::Round((1 - $script:_plOk / $script:_plTotal) * 100))%" } else { "-" }
+    $lblStats.Text = "Tues      : $($g.Kills)`nCycles    : $($g.Cycles)`nInterface : $($g.Iface)`nLoss VPS  : $lossStr_"
 }
 
 function Refresh-DB {
@@ -698,6 +701,7 @@ function Save-SessionHistory {
         maxPing  = $d.maxPing
         spikes   = $d.spikes
         kills    = $g.Kills
+        lossVps  = if ($script:_plTotal -gt 0) { "$([math]::Round((1 - $script:_plOk / $script:_plTotal) * 100))%" } else { "n/a" }
     }
     $history = @()
     if (Test-Path $historyFile) {
@@ -723,8 +727,10 @@ function Show-SessionSummary {
     Append-Log "  +------ RESUME SESSION ------------------------+" $colS
     Append-Log "  | Jeu      : $($d.game)" $colV
     Append-Log "  | Duree    : $dur" $colV
+    $lossRes_ = if ($script:_plTotal -gt 0) { "$([math]::Round((1 - $script:_plOk / $script:_plTotal) * 100))%" } else { "n/a" }
     Append-Log "  | Ping moy : ${avgPing}ms   Max : $($d.maxPing)ms" $colV
-    Append-Log "  | Spikes   : $($d.spikes)   Tues : $($g.Kills)" $colV
+    Append-Log "  | Spikes   : $($d.spikes)   Loss VPS : $lossRes_" $colV
+    Append-Log "  | Tues     : $($g.Kills)" $colV
     Append-Log "  +----------------------------------------------+" $colS
     $script:sessionData = $null
 }
@@ -789,6 +795,8 @@ function Test-PreLaunch {
                         Where-Object { $_.InterfaceDescription -like "*WireGuard*" -and $_.Status -eq "Up" }
                 if ($wgUp) {
                     Append-Log "  [WG] Tunnel demarre avec succes." ([System.Drawing.Color]::FromArgb(75, 200, 115))
+                    Set-NetIPInterface -InterfaceAlias "CS2-WG" -NlMtuBytes 1200 -EA SilentlyContinue
+                    Append-Log "  [WG] MTU fixe a 1200 (anti-fragmentation IPv4/IPv6)." ([System.Drawing.Color]::FromArgb(75, 200, 115))
                 } else {
                     $warns.Add("Tunnel WireGuard inactif — le trafic ne passera PAS par le VPS.")
                 }
@@ -894,6 +902,12 @@ $timer.add_Tick({
         $lblTether.ForeColor = if ($iOk) { [System.Drawing.Color]::FromArgb(75, 200, 115) } else { [System.Drawing.Color]::FromArgb(215, 80, 80) }
         $lblWGStatus.Text      = if ($wOk) { 'WG ●' } else { 'WG ○' }
         $lblWGStatus.ForeColor = if ($wOk) { [System.Drawing.Color]::FromArgb(75, 200, 115) } else { [System.Drawing.Color]::FromArgb(215, 80, 80) }
+        # MTU 1280 applique a chaque check (survie aux relances du tunnel)
+        if ($wOk) { Set-NetIPInterface -InterfaceAlias "CS2-WG" -NlMtuBytes 1200 -EA SilentlyContinue }
+        # Perte de paquets VPS (1 sonde / 5s)
+        $plR_ = Test-Connection "10.66.66.1" -Count 1 -Quiet -TimeoutSeconds 1 -EA SilentlyContinue
+        $script:_plTotal++
+        if ($plR_) { $script:_plOk++ }
     }
     if ($g.Async -and $g.Async.IsCompleted) {
         # Drainer les derniers items restants
@@ -940,6 +954,7 @@ $btnStart.add_Click({
     $selGameInit = if ($selKeyInit -and $gameMap.ContainsKey($selKeyInit)) { $gameMap[$selKeyInit] } else { $null }
     $script:sessionLogFile = Join-Path $logDir ("session-" + (Get-Date -Format "yyyy-MM-dd_HH-mm-ss") + ".txt")
     $script:sessionData    = @{ startTime = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); game = if ($selGameInit) { $selGameInit.Name } else { "Inconnu" }; platform = if ($selGameInit) { $selGameInit.Platform } else { "-" }; spikes = 0; pingTotal = 0; pingCount = 0; maxPing = 0 }
+    $script:_plOk = 0; $script:_plTotal = 0
 
     # Basculer le mode tunnel selon le jeu selectionne
     $selKeyEarly  = $cmbGame.SelectedItem
@@ -1003,6 +1018,7 @@ $btnRelaunch.add_Click({
     $selGameInitR = if ($selKeyInitR -and $gameMap.ContainsKey($selKeyInitR)) { $gameMap[$selKeyInitR] } else { $null }
     $script:sessionLogFile = Join-Path $logDir ("session-" + (Get-Date -Format "yyyy-MM-dd_HH-mm-ss") + ".txt")
     $script:sessionData    = @{ startTime = (Get-Date -Format "yyyy-MM-dd HH:mm:ss"); game = if ($selGameInitR) { $selGameInitR.Name } else { "Inconnu" }; platform = if ($selGameInitR) { $selGameInitR.Platform } else { "-" }; spikes = 0; pingTotal = 0; pingCount = 0; maxPing = 0 }
+    $script:_plOk = 0; $script:_plTotal = 0
 
     # Basculer le mode tunnel selon le jeu selectionne
     $selKeyEarlyR  = $cmbGame.SelectedItem
