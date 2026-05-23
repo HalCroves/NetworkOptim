@@ -1,0 +1,201 @@
+﻿  [WG] Mode : SPLIT TUNNEL  (Valve IPs)
+  Counter-Strike 2 - optimiseur demarre (Runspace)
+[19:48:53] ============================================
+[19:48:53]   Counter-Strike 2 - Optimiseur reseau   
+[19:48:53] ============================================
+[19:48:56]   Interface  : iPhone USB (Apple Mobile Device Ethernet)
+[19:48:56]   Steam      : C:\Program Files (x86)\Steam
+[19:48:56] == [1/6] Processus connus ===================
+[19:48:56]   DB          : 43 processus charges depuis process-blacklist.json
+[19:48:56]   [KILL] ApplePhotoStreams
+[19:48:56]   [KILL] ArmourySocketServer
+[19:48:56]   [KILL] gamingservices
+[19:48:56]   [KILL] iCloudCKKS
+[19:48:56]   [KILL] iCloudDrive
+[19:48:56]   [KILL] iCloudHome
+[19:48:56]   [KILL] iCloudOutlookConfig
+[19:48:56]   [KILL] iCloudPhotos
+[19:48:56]   [KILL] lghub_agent
+[19:48:56]   [KILL] lghub_system_tray
+[19:48:56]   [KILL] MicrosoftEdgeUpdate
+[19:48:56]   [KILL] mmgaserver
+[19:48:56]   [KILL] msedgewebview2
+[19:48:56]   [KILL] SteelSeriesEngine
+[19:48:56]   [KILL] SteelSeriesGG
+[19:48:56]   [KILL] SteelSeriesGGEZ
+[19:48:56]   [KILL] SteelSeriesPrism
+[19:48:56]   [KILL] SteelSeriesSonar
+[19:48:56]   [KILL] vgtray
+[19:48:56]   [KILL] WhatsApp.Root
+[19:48:56]   [KILL] WidgetBoard
+[19:48:56]   [KILL] WidgetService
+[19:48:56] == [2/6] Detection dynamique (TCP actif) ====
+[19:48:56]   Aucun processus supplementaire detecte
+[19:48:56] == [3/6] Services reseau de fond ============
+[19:48:58]   [STOP] Windows Update
+[19:48:58]   [STOP+DISABLE] WSearch (indexation)
+[19:48:58]   [STOP] DiagTrack (telemetrie)
+[19:48:58]   [STOP+DISABLE] SteelSeries GG Update
+[19:48:58]   [STOP+DISABLE] Xbox GamingServices
+[19:48:59]   [STOP+DISABLE] Xbox GamingServicesNet
+[19:48:59]   [STOP+DISABLE] Xbox Auth Manager
+[19:48:59]   [STOP+DISABLE] Xbox Game Save
+[19:48:59]   [STOP+DISABLE] Xbox Live Networking
+[19:48:59]   [STOP+DISABLE] Xbox Accessory Mgmt
+[19:48:59]   [STOP+DISABLE] Delivery Optimization (upload vers pairs)
+[19:49:00]   [STOP] Update Orchestrator (declencheur MAJ)
+[19:49:00]   [PRIO] nvcontainer -> BelowNormal
+[19:49:00]   [REG] Services Xbox force-desactives via registre
+[19:49:00]   [SCM] Recovery actions Xbox videes (plus de restart sur crash)
+[19:49:00]   [SCM] Trigger-starts Xbox supprimes
+[19:49:00] == [4/6] Optimisations reseau ===============
+[19:49:00]   Power Plan  -> High Performance (UP non disponible) (avant : 8c5e7fda...)
+[19:49:00]   BG Apps     -> suspendues (background refresh desactive)
+[19:49:00]   ECN         -> disabled (NAT 4G incompatible)
+[19:49:00]   AutoTuning  -> restricted (BW variable)
+[19:49:00]   Timestamps  -> disabled (overhead reduit)
+[19:49:00]   DNS         -> 1.0.0.1 / 1.1.1.1 (Cloudflare - ordre benchmark)
+[19:49:00]   QoS         -> 0 (100% bande passante)
+[19:49:00]   Nagle       -> desactive (latence TCP reduite)
+[19:49:00]   Throttling  -> desactive (MMCSS NetworkThrottlingIndex + SystemResponsiveness=0)
+[19:49:00]   NIC Sleep   -> desactive (micro-coupures evitees)
+[19:49:01]   InitialRTO  -> 2000ms (retransmit plus rapide)
+[19:49:01]   Cache IP    -> flushe (ARP + destination cache)
+[19:49:01]   Timer       -> 1ms resolution (input lag reduit)
+[19:49:01] == [5/6] Defender exclusions ================
+[19:49:01]   [OK]    Counter-Strike Global Offensive
+[19:49:01]   [OK]    steamapps
+[19:49:01]   [OK]    steam.exe
+[19:49:02]   [OK]    steamwebhelper.exe
+[19:49:02]   [OK]    Counter-Strike Global Offensive.exe
+[19:49:02] == [6/8] MTU auto-optimisation ==============
+[19:49:02]   MTU         -> 1428 octets (auto-detecte, fragmentation evitee)
+[19:49:02] == [7/8] QoS DSCP 46 (EF) ==================
+[19:49:03]   DSCP 46     -> Counter-Strike Global Offensive.exe (Expedited Forwarding, priorite max)
+[19:49:03]   QoS Throttle-> background <= 1Mbps (uplink 4G libre pour le jeu)
+[19:49:03]   [WireGuard]  -> ACTIF : CS2-WG (tunnel vers VPS Paris)
+[19:49:03]   DSCP 46     -> wireguard.exe (EF marque sur uplink 4G physique)
+[19:49:03]   WG MTU      -> 1348 (physique 1428 - 80 overhead)
+[19:49:03] == [8/8] Lancement Counter-Strike 2 ======================
+[19:49:03]   Attente demarrage Counter-Strike 2 (max 120s)...
+[19:49:09]   Counter-Strike 2 PID 16264 -> Priorite High
+[19:49:09]   Counter-Strike 2 Affinity  -> cores 1-11 (core 0/IRQ exclu)
+[19:49:09] ============================================
+[19:49:09]   Bilan
+[19:49:09]   Interface       : iPhone USB
+[19:49:09]   Steam           : C:\Program Files (x86)\Steam
+[19:49:09]   Processus tues  : 22
+[19:49:09]   Services stoppes: 4
+[19:49:09] ============================================
+[19:49:09] En attente de la fermeture de Counter-Strike 2...
+[19:49:09] (Surveillance active toutes les 20s | Restauration automatique a la fermeture)
+[19:49:14]   Prochain cycle dans 15s...
+[19:49:19]   Prochain cycle dans 10s...
+[19:49:24]   Prochain cycle dans 5s...
+[19:49:30]   [PING] 1.1.1.1   avg=47ms  max=58ms  jitter=22ms
+[19:49:31]   [PING] VPS WG    avg=54ms  max=56ms  jitter=3ms
+[19:49:32]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[19:49:34]   [TREE-KILL] gamingservices (cycle #1)
+[19:49:36]   [TREE-KILL] msedgewebview2 (cycle #1)
+[19:49:41]   Prochain cycle dans 15s...
+[19:49:46]   Prochain cycle dans 10s...
+[19:49:51]   Prochain cycle dans 5s...
+[19:49:57]   [PING] 1.1.1.1   avg=40ms  max=46ms  jitter=12ms
+[19:49:58]   [PING] VPS WG    avg=52ms  max=58ms  jitter=13ms
+[19:49:59]   [TREE-KILL] GameBarPresenceWriter (cycle #1)
+[19:50:00]   [TREE-KILL] msedgewebview2 (cycle #2)
+[19:50:05]   Prochain cycle dans 15s...
+[19:50:10]   Prochain cycle dans 10s...
+[19:50:15]   Prochain cycle dans 5s...
+[19:50:21]   [PING] 1.1.1.1   avg=60ms  max=72ms  jitter=23ms
+[19:50:22]   [PING] VPS WG    avg=47ms  max=47ms  jitter=0ms
+[19:50:23]   [TREE-KILL] msedgewebview2 (cycle #3)
+[19:50:28]   Prochain cycle dans 15s...
+[19:50:33]   Prochain cycle dans 10s...
+[19:50:38]   Prochain cycle dans 5s...
+[19:50:44]   [PING] 1.1.1.1   avg=40ms  max=44ms  jitter=8ms
+[19:50:46]   [PING] VPS WG    avg=63ms  max=68ms  jitter=10ms
+[19:50:46]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[19:50:47]   [TREE-KILL] gamingservices (cycle #2)
+[19:50:48]   [TREE-KILL] msedgewebview2 (cycle #4)
+[19:50:53]   Prochain cycle dans 15s...
+[19:50:58]   Prochain cycle dans 10s...
+[19:51:03]   Prochain cycle dans 5s...
+[19:51:09]   [PING] 1.1.1.1   avg=42ms  max=53ms  jitter=22ms
+[19:51:10]   [PING] VPS WG    avg=68ms  max=74ms  jitter=11ms
+[19:51:11]   [TREE-KILL] msedgewebview2 (cycle #5)
+[19:51:16]   Prochain cycle dans 15s...
+[19:51:21]   Prochain cycle dans 10s...
+[19:51:26]   Prochain cycle dans 5s...
+[19:51:32]   [PING] 1.1.1.1   avg=50ms  max=62ms  jitter=24ms
+[19:51:33]   [PING] VPS WG    avg=40ms  max=41ms  jitter=3ms
+[19:51:34]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[19:51:35]   [TREE-KILL] gamingservices (cycle #3)
+[19:51:36]   [TREE-KILL] msedgewebview2 (cycle #6)
+[19:51:41]   Prochain cycle dans 15s...
+[19:51:46]   Prochain cycle dans 10s...
+[19:51:51]   Prochain cycle dans 5s...
+[19:51:57]   [PING] 1.1.1.1   avg=40ms  max=48ms  jitter=16ms
+[19:51:58]   [PING] VPS WG    avg=58ms  max=58ms  jitter=0ms
+[19:51:59]   [TREE-KILL] msedgewebview2 (cycle #7)
+[19:52:04]   Prochain cycle dans 15s...
+[19:52:09]   Prochain cycle dans 10s...
+[19:52:14]   Prochain cycle dans 5s...
+[19:52:20]   [PING] 1.1.1.1   avg=56ms  max=63ms  jitter=13ms
+[19:52:22]   [PING] VPS WG    avg=46ms  max=55ms  jitter=17ms
+[19:52:22]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[19:52:23]   [TREE-KILL] gamingservices (cycle #4)
+[19:52:23]   [GIVEUP] msedgewebview2 (cycle #8) -- service protege par Windows/Store, ignore pour cette session
+[19:52:28]   Prochain cycle dans 15s...
+[19:52:33]   Prochain cycle dans 10s...
+[19:52:38]   Prochain cycle dans 5s...
+[19:52:44]   [PING] 1.1.1.1   avg=44ms  max=55ms  jitter=21ms
+[19:52:45]   [PING] VPS WG    avg=55ms  max=57ms  jitter=4ms
+[19:52:51]   Prochain cycle dans 15s...
+[19:52:56]   Prochain cycle dans 10s...
+[19:53:01]   Prochain cycle dans 5s...
+[19:53:07]   [PING] 1.1.1.1   avg=49ms  max=55ms  jitter=12ms
+[19:53:08]   [PING] VPS WG    avg=75ms  max=94ms  jitter=38ms
+[19:53:09]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[19:53:09]   [TREE-KILL] gamingservices (cycle #5)
+[19:53:15]   Prochain cycle dans 15s...
+[19:53:20]   Prochain cycle dans 10s...
+[19:53:25]   Prochain cycle dans 5s...
+[19:53:31]   [PING] 1.1.1.1   avg=68ms  max=78ms  jitter=20ms
+[19:53:32]   [PING] VPS WG    avg=49ms  max=53ms  jitter=8ms
+[19:53:37]   Prochain cycle dans 15s...
+[19:53:42]   Prochain cycle dans 10s...
+[19:53:47]   Prochain cycle dans 5s...
+[19:53:53]   [PING] 1.1.1.1   avg=40ms  max=46ms  jitter=13ms
+[19:53:54]   [PING] VPS WG    avg=40ms  max=42ms  jitter=4ms
+[19:53:55]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[19:53:56]   [TREE-KILL] gamingservices (cycle #6)
+[19:54:01]   Prochain cycle dans 15s...
+[19:54:06]   Prochain cycle dans 10s...
+[19:54:11]   Prochain cycle dans 5s...
+[19:54:17]   [PING] 1.1.1.1   avg=40ms  max=49ms  jitter=17ms
+[19:54:18]   [PING] VPS WG    avg=44ms  max=50ms  jitter=12ms
+[19:54:23]   Prochain cycle dans 15s...
+[19:54:28]   Prochain cycle dans 10s...
+[19:54:33]   Prochain cycle dans 5s...
+[19:54:40]   [PING] 1.1.1.1   avg=48ms  max=50ms  jitter=4ms
+[19:54:41]   [PING] VPS WG    avg=52ms  max=54ms  jitter=3ms
+[19:54:46]   Prochain cycle dans 15s...
+[19:54:51]   Prochain cycle dans 10s...
+[19:54:56]   Prochain cycle dans 5s...
+[19:55:02]   [PING] 1.1.1.1   avg=38ms  max=43ms  jitter=10ms
+[19:55:03]   [PING] VPS WG    avg=38ms  max=41ms  jitter=5ms
+[19:55:07]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[19:55:07]   [TREE-KILL] gamingservices (cycle #7)
+[19:55:11]   MTU         -> 1428 restauree
+[19:55:11]   Power Plan  -> restaure
+[19:55:11] Counter-Strike 2 ferme. Restauration...
+  +------ RESUME SESSION ------------------------+
+  | Jeu      : Counter-Strike 2
+  | Duree    : 6m 18s
+  | Ping moy : 49ms   Max : 94ms
+  | Spikes   : 0   Loss VPS : 100%
+  | Tues     : 37
+  +----------------------------------------------+
+-----------------------------------------------------
+  Session terminee. Tues : 37  |  Cycles : 7

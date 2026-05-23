@@ -1,0 +1,12 @@
+﻿  [WG] Mode : SPLIT TUNNEL  (Valve IPs)
+  Counter-Strike 2 - relance (Runspace)
+  Session arretee.
+  +------ RESUME SESSION ------------------------+
+  | Jeu      : Counter-Strike 2
+  | Duree    : 0m 00s
+  | Ping moy : 0ms   Max : 0ms
+  | Spikes   : 0   Loss VPS : n/a
+  | Tues     : 0
+  +----------------------------------------------+
+  [WG] Mode : SPLIT TUNNEL  (Valve IPs)
+  Restauration reseau lancee en arriere-plan...

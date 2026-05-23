@@ -1,0 +1,101 @@
+﻿  [WG] Application du mode (redemarrage tunnel)...
+  [WG] Mode : DIRECT 4G  (Valve hors tunnel)
+  Counter-Strike 2 - optimiseur demarre (Runspace)
+[22:51:36] ============================================
+[22:51:36]   Counter-Strike 2 - Optimiseur reseau   
+[22:51:36] ============================================
+[22:51:39]   Interface  : iPhone USB (Apple Mobile Device Ethernet)
+[22:51:39]   Steam      : C:\Program Files (x86)\Steam
+[22:51:40] == [1/6] Processus connus ===================
+[22:51:40]   DB          : 43 processus charges depuis process-blacklist.json
+[22:51:40]   [KILL] gamingservices
+[22:51:40]   [KILL] msedgewebview2
+[22:51:40] == [2/6] Detection dynamique (TCP actif) ====
+[22:51:40]   Aucun processus supplementaire detecte
+[22:51:40] == [3/6] Services reseau de fond ============
+[22:51:41]   [STOP] Windows Update
+[22:51:41]   [STOP+DISABLE] WSearch (indexation)
+[22:51:41]   [STOP+DISABLE] SteelSeries GG Update
+[22:51:41]   [STOP+DISABLE] Xbox GamingServices
+[22:51:43]   [STOP+DISABLE] Xbox GamingServicesNet
+[22:51:43]   [STOP+DISABLE] Xbox Auth Manager
+[22:51:43]   [STOP+DISABLE] Xbox Game Save
+[22:51:43]   [STOP+DISABLE] Xbox Live Networking
+[22:51:43]   [STOP+DISABLE] Xbox Accessory Mgmt
+[22:51:43]   [STOP+DISABLE] Delivery Optimization (upload vers pairs)
+[22:51:43]   [STOP] Update Orchestrator (declencheur MAJ)
+[22:51:43]   [PRIO] nvcontainer -> BelowNormal
+[22:51:43]   [REG] Services Xbox force-desactives via registre
+[22:51:43]   [SCM] Recovery actions Xbox videes (plus de restart sur crash)
+[22:51:43]   [SCM] Trigger-starts Xbox supprimes
+[22:51:43] == [4/6] Optimisations reseau ===============
+[22:51:43]   Power Plan  -> High Performance (UP non disponible) (avant : 8c5e7fda...)
+[22:51:43]   BG Apps     -> suspendues (background refresh desactive)
+[22:51:43]   ECN         -> disabled (NAT 4G incompatible)
+[22:51:43]   AutoTuning  -> restricted (BW variable)
+[22:51:43]   Timestamps  -> disabled (overhead reduit)
+[22:51:43]   DNS         -> 1.0.0.1 / 1.1.1.1 (Cloudflare - ordre benchmark)
+[22:51:43]   QoS         -> 0 (100% bande passante)
+[22:51:43]   Nagle       -> desactive (latence TCP reduite)
+[22:51:43]   Throttling  -> desactive (MMCSS NetworkThrottlingIndex + SystemResponsiveness=0)
+[22:51:43]   NIC Sleep   -> desactive (micro-coupures evitees)
+[22:51:44]   InitialRTO  -> 2000ms (retransmit plus rapide)
+[22:51:44]   Cache IP    -> flushe (ARP + destination cache)
+[22:51:44]   Timer       -> 1ms resolution (input lag reduit)
+[22:51:44] == [5/6] Defender exclusions ================
+[22:51:44]   [OK]    Counter-Strike Global Offensive
+[22:51:44]   [OK]    steamapps
+[22:51:44]   [OK]    steam.exe
+[22:51:44]   [OK]    steamwebhelper.exe
+[22:51:44]   [OK]    Counter-Strike Global Offensive.exe
+[22:51:44] == [6/8] MTU auto-optimisation ==============
+[22:51:45]   MTU         -> 1428 octets (auto-detecte, fragmentation evitee)
+[22:51:45] == [7/8] QoS DSCP 46 (EF) ==================
+[22:51:45]   DSCP 46     -> Counter-Strike Global Offensive.exe (Expedited Forwarding, priorite max)
+[22:51:45]   QoS Throttle-> background <= 1Mbps (uplink 4G libre pour le jeu)
+[22:51:45]   [WireGuard]  -> ACTIF : CS2-WG (tunnel vers VPS Paris)
+[22:51:45]   DSCP 46     -> wireguard.exe (EF marque sur uplink 4G physique)
+[22:51:45]   WG MTU      -> 1348 (physique 1428 - 80 overhead)
+[22:51:45] == [8/8] Lancement Counter-Strike 2 ======================
+[22:51:46]   Attente demarrage Counter-Strike 2 (max 120s)...
+[22:51:49]   Counter-Strike 2 PID 18184 -> Priorite High
+[22:51:49]   Counter-Strike 2 Affinity  -> cores 1-11 (core 0/IRQ exclu)
+[22:51:49] ============================================
+[22:51:49]   Bilan
+[22:51:49]   Interface       : iPhone USB
+[22:51:49]   Steam           : C:\Program Files (x86)\Steam
+[22:51:49]   Processus tues  : 2
+[22:51:49]   Services stoppes: 3
+[22:51:49] ============================================
+[22:51:49] En attente de la fermeture de Counter-Strike 2...
+[22:51:49] (Surveillance active toutes les 20s | Restauration automatique a la fermeture)
+[22:51:54]   Prochain cycle dans 15s...
+[22:51:59]   Prochain cycle dans 10s...
+[22:52:04]   Prochain cycle dans 5s...
+[22:52:10]   [PING] 1.1.1.1   avg=42ms  max=48ms  jitter=12ms
+[22:52:11]   [PING] VPS WG    avg=56ms  max=57ms  jitter=3ms
+[22:52:12]   [TREE-KILL] GameBarPresenceWriter (cycle #1)
+[22:52:13]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[22:52:14]   [TREE-KILL] gamingservices (cycle #1)
+[22:52:15]   [TREE-KILL] msedgewebview2 (cycle #1)
+[22:52:20]   Prochain cycle dans 15s...
+[22:52:25]   Prochain cycle dans 10s...
+[22:52:30]   Prochain cycle dans 5s...
+[22:52:36]   [PING] 1.1.1.1   avg=54ms  max=57ms  jitter=7ms
+[22:52:37]   [PING] VPS WG    avg=50ms  max=55ms  jitter=9ms
+[22:52:38]   [TREE-KILL] msedgewebview2 (cycle #2)
+[22:52:43]   Prochain cycle dans 15s...
+[22:52:48]   Prochain cycle dans 10s...
+[22:52:53]   Prochain cycle dans 5s...
+[22:52:57]   MTU         -> 1428 restauree
+[22:52:58]   Power Plan  -> restaure
+[22:52:58] Counter-Strike 2 ferme. Restauration...
+  +------ RESUME SESSION ------------------------+
+  | Jeu      : Counter-Strike 2
+  | Duree    : 1m 24s
+  | Ping moy : 50ms   Max : 57ms
+  | Spikes   : 0   Loss VPS : 0%
+  | Tues     : 6
+  +----------------------------------------------+
+-----------------------------------------------------
+  Session terminee. Tues : 6  |  Cycles : 2
