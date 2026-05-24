@@ -1,0 +1,89 @@
+﻿  Species: Unknown - optimiseur demarre (Runspace)
+[00:05:03] ============================================
+[00:05:03]   Species: Unknown - Optimiseur reseau   
+[00:05:03] ============================================
+[00:05:05]   Interface  : iPhone USB (Apple Mobile Device Ethernet)
+[00:05:05]   Steam      : C:\Program Files (x86)\Steam
+[00:05:05] == [1/6] Processus connus ===================
+[00:05:05]   DB          : 43 processus charges depuis process-blacklist.json
+[00:05:05]   [KILL] gamingservices
+[00:05:05]   [KILL] msedgewebview2
+[00:05:05]   [KILL] WidgetBoard
+[00:05:05]   [KILL] WidgetService
+[00:05:05] == [2/6] Detection dynamique (TCP actif) ====
+[00:05:05]   Aucun processus supplementaire detecte
+[00:05:05] == [3/6] Services reseau de fond ============
+[00:05:06]   [STOP] Windows Update
+[00:05:06]   [STOP+DISABLE] WSearch (indexation)
+[00:05:06]   [STOP+DISABLE] SteelSeries GG Update
+[00:05:06]   [STOP+DISABLE] Xbox GamingServices
+[00:05:08]   [STOP+DISABLE] Xbox GamingServicesNet
+[00:05:08]   [STOP+DISABLE] Xbox Auth Manager
+[00:05:08]   [STOP+DISABLE] Xbox Game Save
+[00:05:08]   [STOP+DISABLE] Xbox Live Networking
+[00:05:08]   [STOP+DISABLE] Xbox Accessory Mgmt
+[00:05:08]   [STOP+DISABLE] Delivery Optimization (upload vers pairs)
+[00:05:08]   [STOP] Update Orchestrator (declencheur MAJ)
+[00:05:08]   [PRIO] nvcontainer -> BelowNormal
+[00:05:08]   [REG] Services Xbox force-desactives via registre
+[00:05:08]   [SCM] Recovery actions Xbox videes (plus de restart sur crash)
+[00:05:08]   [SCM] Trigger-starts Xbox supprimes
+[00:05:08] == [4/6] Optimisations reseau ===============
+[00:05:09]   Power Plan  -> High Performance (UP non disponible) (avant : 8c5e7fda...)
+[00:05:09]   BG Apps     -> suspendues (background refresh desactive)
+[00:05:09]   ECN         -> disabled (NAT 4G incompatible)
+[00:05:09]   AutoTuning  -> restricted (BW variable)
+[00:05:09]   Timestamps  -> disabled (overhead reduit)
+[00:05:09]   DNS         -> 1.0.0.1 / 1.1.1.1 (Cloudflare - ordre benchmark)
+[00:05:09]   QoS         -> 0 (100% bande passante)
+[00:05:09]   Nagle       -> desactive (latence TCP reduite)
+[00:05:09]   Throttling  -> desactive (MMCSS NetworkThrottlingIndex + SystemResponsiveness=0)
+[00:05:09]   NIC Sleep   -> desactive (micro-coupures evitees)
+[00:05:09]   InitialRTO  -> 2000ms (retransmit plus rapide)
+[00:05:09]   Cache IP    -> flushe (ARP + destination cache)
+[00:05:09]   Timer       -> 1ms resolution (input lag reduit)
+[00:05:09] == [5/6] Defender exclusions ================
+[00:05:10]   [EXCLU] Species Unknown
+[00:05:10]   [OK]    steamapps
+[00:05:10]   [OK]    steam.exe
+[00:05:10]   [OK]    steamwebhelper.exe
+[00:05:10]   [EXCLU] SpeciesUnknown.exe
+[00:05:10] == [6/8] MTU auto-optimisation ==============
+[00:05:10]   MTU         -> 1428 octets (auto-detecte, fragmentation evitee)
+[00:05:10] == [7/8] QoS DSCP 46 (EF) ==================
+[00:05:11]   DSCP 46     -> E:\SteamLibrary\steamapps\common\Species Unknown\SpeciesUnknown.exe (Expedited Forwarding, priorite max)
+[00:05:11]   QoS Throttle-> background <= 1Mbps (uplink 4G libre pour le jeu)
+[00:05:11] == [8/8] Lancement Species: Unknown ======================
+[00:05:11]   Attente demarrage Species: Unknown (max 120s)...
+[00:05:14]   Species: Unknown PID 6932 -> Priorite High
+[00:05:14]   Species: Unknown Affinity  -> cores 1-11 (core 0/IRQ exclu)
+[00:05:14] ============================================
+[00:05:14]   Bilan
+[00:05:14]   Interface       : iPhone USB
+[00:05:14]   Steam           : C:\Program Files (x86)\Steam
+[00:05:14]   Processus tues  : 4
+[00:05:14]   Services stoppes: 3
+[00:05:14] ============================================
+[00:05:14] En attente de la fermeture de Species: Unknown...
+[00:05:14] (Surveillance active toutes les 20s | Restauration automatique a la fermeture)
+[00:05:19]   Prochain cycle dans 15s...
+[00:05:24]   Prochain cycle dans 10s...
+[00:05:29]   Prochain cycle dans 5s...
+[00:05:35]   [PING] 1.1.1.1   avg=40ms  max=41ms  jitter=1ms
+[00:05:45]   [TREE-KILL] GameBarPresenceWriter (cycle #1)
+[00:05:46]   [SVC-FORCE] GamingServices re-desactive (registre+SCM)
+[00:05:47]   [TREE-KILL] gamingservices (cycle #1)
+[00:05:48]   [TREE-KILL] msedgewebview2 (cycle #1)
+[00:05:48]   [NEW-DYN] SpeciesUnknown-Win64-Shipping (3 TCP) -> ajoute a process-blacklist.json
+[00:05:51]   MTU         -> 1428 restauree
+[00:05:52]   Power Plan  -> restaure
+[00:05:52] Species: Unknown ferme. Restauration...
+  +------ RESUME SESSION ------------------------+
+  | Jeu      : Species: Unknown
+  | Duree    : 1m 49s
+  | Ping moy : 40ms   Max : 41ms
+  | Spikes   : 0
+  | Tues     : 8
+  +----------------------------------------------+
+-----------------------------------------------------
+  Session terminee. Tues : 8  |  Cycles : 1

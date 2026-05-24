@@ -432,5 +432,25 @@
         "maxPing":  2171,
         "spikes":  0,
         "kills":  19
+    },
+    {
+        "date":  "2026-05-24 00:02",
+        "game":  "Counter-Strike 2",
+        "platform":  "Steam",
+        "duration":  "95m 55s",
+        "avgPing":  44,
+        "maxPing":  194,
+        "spikes":  0,
+        "kills":  21
+    },
+    {
+        "date":  "2026-05-24 00:05",
+        "game":  "Species: Unknown",
+        "platform":  "Steam",
+        "duration":  "1m 49s",
+        "avgPing":  40,
+        "maxPing":  41,
+        "spikes":  0,
+        "kills":  8
     }
 ]

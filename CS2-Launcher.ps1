@@ -393,7 +393,7 @@ function Get-InstalledGames {
 # ================================================================
 $form = New-Object System.Windows.Forms.Form
 $form.Text            = "CS2 Optimizer"
-$form.ClientSize      = New-Object System.Drawing.Size(700, 730)
+$form.ClientSize      = New-Object System.Drawing.Size(700, 670)
 $form.BackColor       = [System.Drawing.Color]::FromArgb(16, 16, 26)
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
@@ -407,7 +407,7 @@ $pnlHead.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 36)
 $form.Controls.Add($pnlHead)
 
 $lblTitle = New-Object System.Windows.Forms.Label
-$lblTitle.Text      = "   CS2 OPTIMIZER  v2  —  MODE 4G"
+$lblTitle.Text      = "   CS2 OPTIMIZER  v2"
 $lblTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(60, 210, 230)
 $lblTitle.Location  = New-Object System.Drawing.Point(0, 0)
@@ -423,15 +423,6 @@ $lblStatus.Location  = New-Object System.Drawing.Point(290, 0)
 $lblStatus.Size      = New-Object System.Drawing.Size(180, 40)
 $lblStatus.TextAlign = "MiddleLeft"
 $pnlHead.Controls.Add($lblStatus)
-
-$lblTether = New-Object System.Windows.Forms.Label
-$lblTether.Text      = "USB ○"
-$lblTether.Font      = New-Object System.Drawing.Font("Segoe UI", 8)
-$lblTether.ForeColor = [System.Drawing.Color]::FromArgb(215, 80, 80)
-$lblTether.Location  = New-Object System.Drawing.Point(472, 0)
-$lblTether.Size      = New-Object System.Drawing.Size(50, 40)
-$lblTether.TextAlign = "MiddleCenter"
-$pnlHead.Controls.Add($lblTether)
 
 
 # ── Game bar ─────────────────────────────────────────────────────
@@ -471,7 +462,7 @@ $pnlGame.Controls.Add($lblPlatform)
 # ── RichTextBox log ──────────────────────────────────────────────
 $rtb = New-Object System.Windows.Forms.RichTextBox
 $rtb.Location    = New-Object System.Drawing.Point(8, 92)
-$rtb.Size        = New-Object System.Drawing.Size(503, 564)
+$rtb.Size        = New-Object System.Drawing.Size(503, 504)
 $rtb.BackColor   = [System.Drawing.Color]::FromArgb(9, 9, 16)
 $rtb.ForeColor   = [System.Drawing.Color]::FromArgb(165, 165, 185)
 $rtb.Font        = New-Object System.Drawing.Font("Consolas", 8.5)
@@ -484,7 +475,7 @@ $form.Controls.Add($rtb)
 # ── Panel droit ───────────────────────────────────────────────────────
 $pnlR = New-Object System.Windows.Forms.Panel
 $pnlR.Location  = New-Object System.Drawing.Point(519, 92)
-$pnlR.Size      = New-Object System.Drawing.Size(173, 632)
+$pnlR.Size      = New-Object System.Drawing.Size(173, 572)
 $pnlR.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 32)
 $form.Controls.Add($pnlR)
 
@@ -599,7 +590,7 @@ $pnlR.Controls.Add($lblStats)
 $lblDB = New-Object System.Windows.Forms.Label
 $lblDB.Font      = New-Object System.Drawing.Font("Consolas", 7.5)
 $lblDB.ForeColor = [System.Drawing.Color]::FromArgb(65, 65, 95)
-$lblDB.Location  = New-Object System.Drawing.Point(8, 598)
+$lblDB.Location  = New-Object System.Drawing.Point(8, 537)
 $lblDB.Size      = New-Object System.Drawing.Size(157, 28)
 $lblDB.Text      = "DB : $dbCount entrees"
 $pnlR.Controls.Add($lblDB)
@@ -696,27 +687,10 @@ function Show-SessionSummary {
 }
 
 # ================================================================
-#  VERIFICATIONS PRE-LANCEMENT (iPhone tethering)
-# ================================================================
-function Test-PreLaunch {
-
-    # --- iPhone USB tethering ---
-    $iphoneUp = Get-NetAdapter -EA SilentlyContinue |
-                Where-Object { $_.InterfaceDescription -like "*Apple Mobile Device*" -and $_.Status -eq "Up" }
-    if (-not $iphoneUp) {
-        $res = [System.Windows.Forms.MessageBox]::Show("Tethering iPhone USB non detecte.`nVerifie le cable et 'Partage de connexion'.`n`nLancer quand meme ?", "iPhone non detecte", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        if ($res -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
-    }
-
-    return $true
-}
-
-# ================================================================
 #  TIMER — polling du background job toutes les 200ms
 # ================================================================
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 200
-$script:_tickCount      = 0
 $script:_lastSpikeToast = [datetime]::MinValue
 
 function Send-SpikeToast([string]$gameName) {
@@ -775,13 +749,6 @@ $timer.add_Tick({
 
     Refresh-Stats
 
-    # Indicateur tethering iPhone (toutes les 5s = 25 ticks)
-    $script:_tickCount++
-    if ($script:_tickCount % 25 -eq 0) {
-        $iOk = Get-NetAdapter -EA SilentlyContinue | Where-Object { $_.InterfaceDescription -like '*Apple Mobile Device*' -and $_.Status -eq 'Up' }
-        $lblTether.Text      = if ($iOk) { 'USB ●' } else { 'USB ○' }
-        $lblTether.ForeColor = if ($iOk) { [System.Drawing.Color]::FromArgb(75, 200, 115) } else { [System.Drawing.Color]::FromArgb(215, 80, 80) }
-    }
     if ($g.Async -and $g.Async.IsCompleted) {
         # Drainer les derniers items restants
         while ($g.Queue.TryDequeue([ref]$item)) {
@@ -815,8 +782,6 @@ $btnStart.add_Click({
             "Fichier manquant", "OK", "Error") | Out-Null
         return
     }
-
-    if (-not (Test-PreLaunch)) { return }
 
     $rtb.Clear()
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"
@@ -874,7 +839,6 @@ $btnRelaunch.add_Click({
         $timer.Stop()
     }
     if (-not (Test-Path $mainScript)) { return }
-    if (-not (Test-PreLaunch)) { return }
 
     $rtb.Clear()
     $g.Kills = 0; $g.Cycles = 0; $g.Iface = "-"

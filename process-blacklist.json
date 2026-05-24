@@ -29,6 +29,7 @@
                       "OneDrive",
                       "OneDriveStandaloneUpdater",
                       "Slack",
+                      "SpeciesUnknown-Win64-Shipping",
                       "SteelSeriesEngine",
                       "SteelSeriesGG",
                       "SteelSeriesGGEZ",
@@ -44,6 +45,6 @@
                       "XboxGameOverlay",
                       "XboxSpeechToTextOverlay"
                   ],
-    "lastUpdated":  "2026-05-23 17:04:16",
-    "count":  43
+    "lastUpdated":  "2026-05-24 00:05:48",
+    "count":  44
 }
